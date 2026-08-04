@@ -1,5 +1,5 @@
-#ifndef CS247_BOARD_H
-#define CS247_BOARD_H
+#ifndef BOARD_H
+#define BOARD_H
 
 #include <memory>
 #include <string>
@@ -23,9 +23,13 @@ public:
     District &at(int square);
 
     // Advance a position by a number of squares, wrapping the circuit.
+    // Negative steps are supported: a Wandering Market can send an Artificer back.
     static int advance(int from, int steps);
-    // True when moving from one square to another passed over Grand Entrance.
-    static bool passedGrandEntrance(int from, int to);
+
+    // Whether a move earns the Grand Entrance bonus. This takes the step count
+    // rather than the destination because the destination alone cannot tell a
+    // forward lap from a backward move, and only forward moves collect.
+    static bool passedGrandEntrance(int from, int steps);
 
     // Ownable district names are unique across the circuit, so this is the
     // lookup the save file and the district-naming commands need.
@@ -35,4 +39,4 @@ private:
     std::vector<std::unique_ptr<District>> districts_;
 };
 
-#endif  // CS247_BOARD_H
+#endif  // BOARD_H

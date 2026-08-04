@@ -1,5 +1,5 @@
-#ifndef CS247_OBSERVER_H
-#define CS247_OBSERVER_H
+#ifndef OBSERVER_H
+#define OBSERVER_H
 
 #include <algorithm>
 #include <vector>
@@ -42,4 +42,4 @@ private:
     std::vector<Observer *> observers_;  // non-owning
 };
 
-#endif  // CS247_OBSERVER_H
+#endif  // OBSERVER_H

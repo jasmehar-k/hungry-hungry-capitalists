@@ -1,5 +1,5 @@
-#ifndef CS247_SPECIALDISTRICTS_H
-#define CS247_SPECIALDISTRICTS_H
+#ifndef SPECIALDISTRICTS_H
+#define SPECIALDISTRICTS_H
 
 #include <string>
 #include <utility>
@@ -74,4 +74,4 @@ public:
     void landOn(Game &game, Player &visitor) override;
 };
 
-#endif  // CS247_SPECIALDISTRICTS_H
+#endif  // SPECIALDISTRICTS_H

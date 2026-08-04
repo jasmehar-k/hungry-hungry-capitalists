@@ -24,10 +24,11 @@ std::string pad(std::string text, std::size_t width) {
     return text;
 }
 
-std::string leftRight(std::string left, const std::string &right, std::size_t width) {
-    if (left.size() + right.size() > width) {
-        left.resize(width > right.size() ? width - right.size() : 0);
-    }
+std::string leftRight(std::string left, std::string right, std::size_t width) {
+    // Clamp the right side first: without this, a right side wider than the
+    // cell makes the padding length underflow and std::string::append throws.
+    if (right.size() > width) right.resize(width);
+    if (left.size() + right.size() > width) left.resize(width - right.size());
     left.append(width - left.size() - right.size(), ' ');
     left += right;
     return left;

@@ -9,9 +9,18 @@ Game::Game(bool testingMode) : testingMode_{testingMode} {}
 
 Game::~Game() = default;
 
-void Game::addPlayer(std::string name, char token) {
+bool Game::tokenTaken(char token) const {
+    for (const auto &player : players_) {
+        if (player->token() == token) return true;
+    }
+    return false;
+}
+
+bool Game::addPlayer(std::string name, char token) {
+    if (players_.size() >= kMaxPlayers || tokenTaken(token)) return false;
     players_.push_back(std::make_unique<Player>(std::move(name), token));
     notifyObservers();
+    return true;
 }
 
 const Player &Game::player(std::size_t index) const {

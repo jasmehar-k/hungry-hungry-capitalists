@@ -1,5 +1,5 @@
-#ifndef CS247_DISTRICT_H
-#define CS247_DISTRICT_H
+#ifndef DISTRICT_H
+#define DISTRICT_H
 
 #include <string>
 
@@ -68,4 +68,4 @@ private:
     int buyPrice_;
 };
 
-#endif  // CS247_DISTRICT_H
+#endif  // DISTRICT_H

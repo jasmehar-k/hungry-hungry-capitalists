@@ -1,5 +1,5 @@
-#ifndef CS247_DISTRICTFACTORY_H
-#define CS247_DISTRICTFACTORY_H
+#ifndef DISTRICTFACTORY_H
+#define DISTRICTFACTORY_H
 
 #include <memory>
 
@@ -16,4 +16,4 @@ public:
     static std::unique_ptr<District> create(const DistrictSpec &spec);
 };
 
-#endif  // CS247_DISTRICTFACTORY_H
+#endif  // DISTRICTFACTORY_H

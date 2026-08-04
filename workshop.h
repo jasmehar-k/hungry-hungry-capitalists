@@ -1,5 +1,5 @@
-#ifndef CS247_WORKSHOP_H
-#define CS247_WORKSHOP_H
+#ifndef WORKSHOP_H
+#define WORKSHOP_H
 
 #include <array>
 #include <string>
@@ -29,4 +29,4 @@ private:
     int upgrades_ = 0;
 };
 
-#endif  // CS247_WORKSHOP_H
+#endif  // WORKSHOP_H

@@ -1,5 +1,5 @@
-#ifndef CS247_GAME_H
-#define CS247_GAME_H
+#ifndef GAME_H
+#define GAME_H
 
 #include <cstddef>
 #include <memory>
@@ -21,7 +21,9 @@ public:
     Board &board() { return board_; }
     const Board &board() const { return board_; }
 
-    void addPlayer(std::string name, char token);
+    // Rejects a seventh Artificer or a token already in play, per the spec.
+    bool addPlayer(std::string name, char token);
+    bool tokenTaken(char token) const;
     std::size_t playerCount() const { return players_.size(); }
     const Player &player(std::size_t index) const;
     Player &player(std::size_t index);
@@ -40,4 +42,4 @@ private:
     bool testingMode_;
 };
 
-#endif  // CS247_GAME_H
+#endif  // GAME_H

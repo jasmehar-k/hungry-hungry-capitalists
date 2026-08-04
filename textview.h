@@ -1,5 +1,5 @@
-#ifndef CS247_TEXTVIEW_H
-#define CS247_TEXTVIEW_H
+#ifndef TEXTVIEW_H
+#define TEXTVIEW_H
 
 #include <array>
 #include <cstddef>
@@ -39,4 +39,4 @@ private:
     std::shared_ptr<ControllerInterface> controller_;
 };
 
-#endif  // CS247_TEXTVIEW_H
+#endif  // TEXTVIEW_H

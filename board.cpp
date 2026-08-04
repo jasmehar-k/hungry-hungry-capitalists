@@ -30,14 +30,17 @@ int Board::advance(int from, int steps) {
     return raw < 0 ? raw + kBoardSize : raw;
 }
 
-bool Board::passedGrandEntrance(int from, int to) {
-    return to < from;  // the circuit only wraps at Grand Entrance
+bool Board::passedGrandEntrance(int from, int steps) {
+    // Moving backward over Grand Entrance pays nothing, so a bare "did the
+    // square index decrease" test would wrongly pay out on every backward move.
+    return steps > 0 && from + steps >= kBoardSize;
 }
 
 OwnableDistrict *Board::findOwnable(const std::string &name) {
     for (const auto &district : districts_) {
-        if (district->isOwnable() && district->name() == name) {
-            return static_cast<OwnableDistrict *>(district.get());
+        if (district->name() != name) continue;
+        if (auto *ownable = dynamic_cast<OwnableDistrict *>(district.get())) {
+            return ownable;
         }
     }
     return nullptr;

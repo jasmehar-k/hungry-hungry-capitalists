@@ -1,5 +1,5 @@
-#ifndef CS247_DEPOT_H
-#define CS247_DEPOT_H
+#ifndef DEPOT_H
+#define DEPOT_H
 
 #include <string>
 
@@ -15,4 +15,4 @@ protected:
     int computeToll(const Game &game, const Player &visitor) const override;
 };
 
-#endif  // CS247_DEPOT_H
+#endif  // DEPOT_H

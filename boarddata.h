@@ -1,5 +1,5 @@
-#ifndef CS247_BOARDDATA_H
-#define CS247_BOARDDATA_H
+#ifndef BOARDDATA_H
+#define BOARDDATA_H
 
 #include <array>
 #include <string_view>
@@ -142,4 +142,4 @@ inline constexpr std::array<int, 5> kForgeLevy{0, 25, 50, 100, 200};
 inline constexpr int kDepotSingleMultiplier = 4;
 inline constexpr int kDepotBothMultiplier = 10;
 
-#endif  // CS247_BOARDDATA_H
+#endif  // BOARDDATA_H

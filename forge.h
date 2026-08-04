@@ -1,5 +1,5 @@
-#ifndef CS247_FORGE_H
-#define CS247_FORGE_H
+#ifndef FORGE_H
+#define FORGE_H
 
 #include <string>
 
@@ -15,4 +15,4 @@ protected:
     int computeToll(const Game &game, const Player &visitor) const override;
 };
 
-#endif  // CS247_FORGE_H
+#endif  // FORGE_H

@@ -1,10 +1,16 @@
-#ifndef CS247_PLAYER_H
-#define CS247_PLAYER_H
+#ifndef PLAYER_H
+#define PLAYER_H
 
+#include <cstddef>
 #include <string>
 
 inline constexpr int kStartingReagents = 1500;
 inline constexpr int kMaxLockupTurns = 3;
+
+// The display cannot fit more than six tokens in a district cell, which is why
+// the spec caps play at six Artificers.
+inline constexpr std::size_t kMinPlayers = 2;
+inline constexpr std::size_t kMaxPlayers = 6;
 
 class Player {
 public:
@@ -38,4 +44,4 @@ private:
     int lockupTurns_ = 0;
 };
 
-#endif  // CS247_PLAYER_H
+#endif  // PLAYER_H

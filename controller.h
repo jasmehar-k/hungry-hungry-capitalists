@@ -1,5 +1,5 @@
-#ifndef CS247_CONTROLLER_H
-#define CS247_CONTROLLER_H
+#ifndef CONTROLLER_H
+#define CONTROLLER_H
 
 #include <string>
 
@@ -25,4 +25,4 @@ private:
     Game &game_;
 };
 
-#endif  // CS247_CONTROLLER_H
+#endif  // CONTROLLER_H
