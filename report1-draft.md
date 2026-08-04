@@ -319,6 +319,24 @@ Method because there is no creator hierarchy — the structural difference betwe
   exactly one strategy adds complexity without adding value. It is reported as part of MVC's
   compound structure rather than claimed as a pattern in its own right.
 
+### 3.8 A separation that is deliberately not a pattern
+
+`Auction` (`auction.h`/`.cpp`) runs the bidding when a purchase is declined or Treasury insolvency
+releases districts. It was extracted from `Game`, and it is worth reporting *because* no pattern
+is claimed for it.
+
+The bidding loop is an interactive dialogue with its own lifecycle — who is still in, what the
+current bid is, whose turn it is to answer — and it changes when the auction rules change, which
+is a different axis of variation from the rest of the Model. Leaving it inside `Game` gave `Game`
+one more reason to change and diluted its cohesion; extracting it restores functional cohesion on
+both sides.
+
+That is a Single Responsibility argument, and it needs no pattern to be valid. Patterns are a
+vocabulary for recurring structural problems, not a prerequisite for splitting a class — reaching
+for a pattern name here (Mediator, say, or a Strategy over bidding rules) would have been the
+name-dropping the course warns against, since there is exactly one auction procedure and no second
+occurrence to generalise from. An ordinary class with a clear responsibility is the right answer.
+
 ---
 
 ## 4. Answers to Design Questions
@@ -510,6 +528,60 @@ accepting the generic "I don't understand"; introducing a command that reports a
 of console output while the user gets a precise message. A related robustness fix: an unrecognised
 command-line argument used to abort the program entirely — the wrong failure mode at a demo — so
 unknown arguments now warn and continue.
+
+### 5.8 The design violated principles the report itself was citing
+
+**The challenge.** Once the features worked, the code was audited against the course's summary of
+its own design principles. It failed several of them — and worse, several that this report was
+already quoting approvingly while the violation sat in the tree:
+
+- `Game` wrote to `std::cout` at **83 call sites**. Encapsulation says every public commitment
+  constrains future change, and those were an undeclared commitment to a console: no other View
+  could reuse the Model without them following it.
+- The auction's bidding loop lived inside `Game`, giving the Model a second axis of variation.
+- **Eleven `dynamic_cast`s** and eight duplicated board sweeps re-derived "which squares are
+  ownable" — dispatch on a type tag, which is the canonical OCP violation.
+- `game_.turn().roll()` appeared throughout — precisely the `a.getB().getC()` train wreck the
+  Principle of Least Knowledge names.
+
+**Approaches considered.** Ship it and document the gaps in the report, which is what had been
+happening — the console problem was written up as an "honest limitation" and defended by noting
+that Chapter 16's own `GumballMachine` prints from the Model. Rewriting wholesale was rejected as
+too risky this close to submission. The third option, taken, was a targeted pass fixing one
+principle at a time with the test suite re-run after each.
+
+**How it was resolved.**
+
+1. **DIP — the console left the Model.** `Game` and `TextView` take `std::istream&` and
+   `std::ostream&` by constructor injection, which is the shape the summary prescribes: high-level
+   logic depends on an abstraction, and the concrete implementation is injected through
+   constructor parameters. `main.cpp` is now the only file in the program naming `std::cin` or
+   `std::cout`, and `game.cpp` contains zero. This is also what *made the headless tests possible*
+   — the earlier scratch harness worked by ignoring standard output, not by isolating the Model.
+2. **SRP — the auction left `Game`.** See §3.8.
+3. **OCP and DRY — type dispatch left the sweeps.** `Board` classifies its districts once at
+   construction into a circuit-ordered registry, and every ownership sweep — total worth,
+   transfers, insolvency, save/load, assets — iterates `board.ownables()`. New virtual hooks
+   (`buyPrice` on the base, `upgradeInvestment` on ownables) removed the rest, which is the
+   summary's prescribed fix: replace the type-tag switch with virtual dispatch. Eleven downcasts
+   became **one**, in `board.cpp` at the point of classification, with its reason stated in a
+   comment.
+4. **Least Knowledge — chains became forwarders.** `Game` no longer exposes its `Turn` at all;
+   callers use `game_.roll()`, and states use `turn_.out()` and `turn_.endTurn()`. Asset
+   formatting also moved out of the Model into `AssetsCommand` and `AllCommand`, rendering from
+   the new `Game::districtsOwnedBy()`.
+5. **Honesty — the claimed tests were made real.** This report had cited a 200,000-draw
+   statistical harness, "100 consecutive exact deck passes", and a count of headless checks as
+   evidence. None of it was in the submitted tree; it existed only in scratch files that, after
+   the refactor, no longer compiled. `tests/tabletest.cpp` and `tests/gametest.cpp` now live in
+   the repository and run under `make test`. The headless suite drives a full `Game` over string
+   streams — movement, toll doubling, Forge and Depot levies, mortgages, the Lockup, parked debts,
+   insolvency, and a byte-identical save/load round trip. The check count quoted in this report
+   was corrected from 78 to the real figure, **56**.
+
+The lesson worth recording is that the first four were all *findable* by reading the code against
+a principles checklist, and the fifth was findable by asking whether every claim in the report
+pointed at something a marker could actually run.
 
 ---
 
