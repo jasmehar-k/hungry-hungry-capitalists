@@ -8,6 +8,7 @@
 #include "district.h"
 #include "player.h"
 #include "turn.h"
+#include "workshop.h"
 
 Game::Game(bool testingMode, unsigned seed)
     : testingMode_{testingMode}, rng_{seed}, dice_{rng_} {
@@ -95,4 +96,58 @@ bool Game::forceLockupExit(Player &player) {
 void Game::payTreasury(Player &player, int amount) {
     player.addReagents(-amount);
     treasury_ += amount;
+    std::cout << player.name() << " pays " << amount << " Reagents to the Guild Treasury\n";
+}
+
+void Game::payPlayer(Player &from, Player &to, int amount) {
+    // TODO(insolvency step): when `from` cannot cover this, the debt should
+    // open the raise-funds-or-declare-insolvency path instead of going negative.
+    from.addReagents(-amount);
+    to.addReagents(amount);
+    std::cout << from.name() << " pays " << amount << " Reagents to " << to.name() << '\n';
+}
+
+bool Game::guildComplete(Guild guild, const Player &owner) const {
+    int inGuild = 0;
+    int held = 0;
+    for (int square = 0; square < Board::size(); ++square) {
+        const District &district = board_.at(square);
+        if (district.kind() != DistrictKind::Workshop || district.guild() != guild) continue;
+        ++inGuild;
+        const auto *ownable = static_cast<const OwnableDistrict *>(&district);
+        if (ownable->owner() == &owner) ++held;
+    }
+    return inGuild > 0 && inGuild == held;
+}
+
+int Game::countOwned(DistrictKind kind, const Player &owner) const {
+    int total = 0;
+    for (int square = 0; square < Board::size(); ++square) {
+        const District &district = board_.at(square);
+        if (district.kind() != kind) continue;
+        const auto *ownable = dynamic_cast<const OwnableDistrict *>(&district);
+        if (ownable && ownable->owner() == &owner) ++total;
+    }
+    return total;
+}
+
+int Game::totalWorth(const Player &player) const {
+    int worth = player.reagents();
+    for (int square = 0; square < Board::size(); ++square) {
+        const auto *ownable = dynamic_cast<const OwnableDistrict *>(&board_.at(square));
+        if (!ownable || ownable->owner() != &player) continue;
+        worth += ownable->buyPrice();
+        if (const auto *workshop = dynamic_cast<const Workshop *>(ownable)) {
+            worth += workshop->upgradeCount() * workshop->upgradeCost();
+        }
+    }
+    return worth;
+}
+
+std::string Game::prompt(const std::string &question) const {
+    std::cout << question;
+    std::cout.flush();
+    std::string line;
+    std::getline(std::cin, line);
+    return line;
 }

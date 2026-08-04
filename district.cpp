@@ -1,7 +1,9 @@
 #include "district.h"
 
+#include <iostream>
 #include <utility>
 
+#include "game.h"
 #include "player.h"
 
 District::District(int square, std::string name)
@@ -17,10 +19,17 @@ char OwnableDistrict::ownerInitial() const {
 // Template Method: the order of a visit is fixed here and cannot be overridden.
 // Only computeToll varies between Workshops, Forges and Depots.
 void OwnableDistrict::landOn(Game &game, Player &visitor) {
-    if (owner_ == nullptr) return;   // unowned: purchase or auction
+    if (owner_ == nullptr) {
+        // TODO(buying step): offer the purchase, then auction on a decline.
+        std::cout << name() << " is unowned, " << buyPrice_ << " Reagents\n";
+        return;
+    }
     if (owner_ == &visitor) return;  // an Artificer never tolls themselves
-    if (mortgaged_) return;          // a mortgaged district charges nothing
+    if (mortgaged_) {
+        std::cout << name() << " is mortgaged, so no Toll Fee is due\n";
+        return;
+    }
 
     const int toll = computeToll(game, visitor);
-    static_cast<void>(toll);  // charging arrives with the movement step
+    game.payPlayer(visitor, *owner_, toll);
 }

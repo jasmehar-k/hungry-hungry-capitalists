@@ -56,7 +56,18 @@ public:
     bool forceLockupExit(Player &player);
     // Reagents paid to the Guild Treasury leave play.
     void payTreasury(Player &player, int amount);
+    void payPlayer(Player &from, Player &to, int amount);
     int treasury() const { return treasury_; }
+
+    // True when `owner` holds every Workshop in the Guild. Guild sizes differ
+    // (Smoke has 3, Gilded has 5), so this counts the Guild's real membership.
+    bool guildComplete(Guild guild, const Player &owner) const;
+    int countOwned(DistrictKind kind, const Player &owner) const;
+    // Savings plus printed value of every district plus every upgrade bought.
+    int totalWorth(const Player &player) const;
+
+    // Asks the user a question during a landing that requires a decision.
+    std::string prompt(const std::string &question) const;
 
 private:
     Board board_;
