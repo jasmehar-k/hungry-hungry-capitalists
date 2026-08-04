@@ -82,15 +82,17 @@ void WanderingMarket::landOn(Game &game, Player &visitor) {
 void EnchantmentDeck::landOn(Game &game, Player &visitor) {
     if (game.tryGrantFreePass(visitor)) return;
 
-    const EnchantmentOutcome &outcome = drawEnchantment(game.rng());
-    std::cout << visitor.name() << " draws an Enchantment card: "
-              << (outcome.change > 0 ? "+" : "") << outcome.change << " Reagents\n";
+    // Either the spec's probability table or the shuffled deck, chosen at
+    // startup; the square itself does not care which.
+    const int change = game.drawEnchantmentValue();
+    std::cout << visitor.name() << " draws an Enchantment card: " << (change > 0 ? "+" : "")
+              << change << " Reagents\n";
 
-    if (outcome.change < 0) {
+    if (change < 0) {
         // Routed through payTreasury so a loss the Artificer cannot cover
         // becomes a debt rather than a negative balance.
-        game.payTreasury(visitor, -outcome.change);
+        game.payTreasury(visitor, -change);
     } else {
-        visitor.addReagents(outcome.change);
+        visitor.addReagents(change);
     }
 }

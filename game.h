@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "board.h"
+#include "cards.h"
 #include "dice.h"
 #include "observer.h"
 
@@ -24,7 +25,10 @@ class Turn;
 // the command finishes, which is the real unit of change here.
 class Game final : public Subject {
 public:
-    explicit Game(bool testingMode, unsigned seed = 0);
+    // shuffledDeck selects the optional enhancement: Enchantment effects come
+    // from a real deck rather than the spec's probability table. It is chosen
+    // at startup so the game plays either way without recompiling.
+    explicit Game(bool testingMode, unsigned seed = 0, bool shuffledDeck = false);
     ~Game() override;
 
     // The single Model instance; observers and districts hold pointers into it.
@@ -60,7 +64,12 @@ public:
     // over it, then resolves the destination district.
     void movePlayer(Player &player, int steps);
     void sendToLockup(Player &player);
-    // Spends a Free-Pass Token or pays the fine. False when neither is possible.
+    // The spec offers a detained Artificer three routes out on every turn, not
+    // only the third: roll for doubles, pay the fine, or spend a token. Returns
+    // true when they bought their way out, in which case they still roll and
+    // move. Asks nothing when neither the fine nor a token is affordable.
+    bool offerLockupExit(Player &player);
+    // The third turn, where the fine or a token stops being optional.
     bool forceLockupExit(Player &player);
     // Reagents paid to the Guild Treasury leave play.
     void payTreasury(Player &player, int amount);
@@ -73,6 +82,11 @@ public:
     int countOwned(DistrictKind kind, const Player &owner) const;
     // Savings plus printed value of every district plus every upgrade bought.
     int totalWorth(const Player &player) const;
+
+    // The single seam between the two Enchantment implementations: everything
+    // else about the square is identical either way.
+    int drawEnchantmentValue();
+    bool usingShuffledDeck() const { return deck_ != nullptr; }
 
     int totalFreePasses() const;
     // The 1% draw that replaces a card square's normal effect. Returns false
@@ -127,6 +141,7 @@ private:
     int treasury_ = 0;
     std::mt19937 rng_;   // declared before dice_, which holds a reference to it
     Dice dice_;
+    std::unique_ptr<CardDeck> deck_;  // null unless the enhancement is on
     std::unique_ptr<Turn> turn_;
 
     // The outstanding debt, if any. A null creditor means the Guild Treasury.

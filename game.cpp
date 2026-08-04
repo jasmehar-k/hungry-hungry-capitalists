@@ -12,9 +12,15 @@
 #include "turn.h"
 #include "workshop.h"
 
-Game::Game(bool testingMode, unsigned seed)
+Game::Game(bool testingMode, unsigned seed, bool shuffledDeck)
     : testingMode_{testingMode}, rng_{seed}, dice_{rng_} {
+    if (shuffledDeck) deck_ = std::make_unique<CardDeck>(rng_);
     turn_ = std::make_unique<Turn>(*this);
+}
+
+int Game::drawEnchantmentValue() {
+    if (deck_ != nullptr) return deck_->draw();
+    return drawEnchantment(rng_).change;
 }
 
 Game::~Game() = default;
@@ -85,6 +91,43 @@ void Game::movePlayer(Player &player, int steps) {
 void Game::sendToLockup(Player &player) {
     player.sendToLockup();
     std::cout << player.name() << " is sent to The Lockup\n";
+}
+
+bool Game::offerLockupExit(Player &player) {
+    const bool canPay = player.reagents() >= kLockupFine;
+    const bool hasToken = player.freePasses() > 0;
+    // With neither route affordable, rolling for doubles is the only option
+    // and there is nothing to ask about.
+    if (!canPay && !hasToken) return false;
+
+    while (true) {
+        std::ostringstream question;
+        question << "leave The Lockup how? [roll";
+        if (canPay) question << "/pay";
+        if (hasToken) question << "/token";
+        question << "] ";
+        const std::string answer = prompt(question.str());
+
+        // A blank answer, including end of input, rolls for doubles.
+        if (answer == "roll" || answer.empty()) return false;
+
+        if (answer == "pay" && canPay) {
+            payTreasury(player, kLockupFine);
+            player.releaseFromLockup();
+            std::cout << player.name() << " leaves The Lockup\n";
+            return true;
+        }
+        if (answer == "token" && hasToken) {
+            player.setFreePasses(player.freePasses() - 1);
+            player.releaseFromLockup();
+            std::cout << player.name() << " spends a Free-Pass Token to leave The Lockup\n";
+            return true;
+        }
+        std::cout << "please answer roll";
+        if (canPay) std::cout << ", pay";
+        if (hasToken) std::cout << " or token";
+        std::cout << '\n';
+    }
 }
 
 bool Game::forceLockupExit(Player &player) {

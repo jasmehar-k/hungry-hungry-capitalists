@@ -68,10 +68,21 @@ void PostRollState::next() { turn_.game().endTurn(); }
 
 void LockupState::roll(int die1, int die2) {
     Game &game = turn_.game();
+    Player &player = game.currentPlayer();
+
+    // Paying the fine or spending a token is available on any detained turn,
+    // not only the third. Either way the Artificer then rolls and moves.
+    if (game.offerLockupExit(player)) {
+        applyRoll(game, die1, die2);
+        announceRoll(game);
+        game.movePlayer(player, game.dice().total());
+        turn_.setState(turn_.postRollState());
+        return;
+    }
+
     applyRoll(game, die1, die2);
     announceRoll(game);
 
-    Player &player = game.currentPlayer();
     const Dice &dice = game.dice();
 
     if (dice.isDoubles()) {

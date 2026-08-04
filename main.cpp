@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "cards.h"
 #include "controller.h"
 #include "game.h"
 #include "player.h"
@@ -17,6 +18,7 @@ namespace {
 struct Options {
     std::string loadFile;   // empty when no -load was given
     bool testing = false;
+    bool shuffledDeck = false;
     unsigned seed = 0;
     bool seedGiven = false;
 };
@@ -34,6 +36,9 @@ bool parseArguments(int argc, char *argv[], Options &opts) {
             opts.loadFile = argv[++i];
         } else if (arg == "-testing") {
             opts.testing = true;
+        } else if (arg == "-deck") {
+            // Optional enhancement, selected without recompiling.
+            opts.shuffledDeck = true;
         } else {
             // The only other argument the spec allows is an optional seed.
             try {
@@ -55,7 +60,12 @@ int main(int argc, char *argv[]) {
     if (!parseArguments(argc, argv, opts)) return 1;
 
     // Seeded once at startup so that a given seed replays an identical game.
-    Game game{opts.testing, opts.seedGiven ? opts.seed : std::random_device{}()};
+    Game game{opts.testing, opts.seedGiven ? opts.seed : std::random_device{}(),
+              opts.shuffledDeck};
+    if (opts.shuffledDeck) {
+        std::cout << "Enchantment effects come from a shuffled deck of "
+                  << CardDeck::size() << " cards\n";
+    }
 
     if (!opts.loadFile.empty()) {
         std::string error;
