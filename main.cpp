@@ -11,7 +11,6 @@
 #include "savegame.h"
 #include "setup.h"
 #include "textview.h"
-#include "turn.h"
 
 namespace {
 
@@ -83,7 +82,7 @@ int main(int argc, char *argv[]) {
 
     // The view attaches only once the roster is settled: it observes the Game,
     // and attaching earlier would redraw the board once per Artificer added.
-    game.turn().beginTurn();
+    game.beginTurn();
 
     auto controller = std::make_shared<GameController>(game);
     TextView view{game, controller, std::cout};

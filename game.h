@@ -7,6 +7,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "board.h"
@@ -64,8 +65,15 @@ public:
     std::mt19937 &rng() { return rng_; }
     Dice &dice() { return dice_; }
     const Dice &dice() const { return dice_; }
-    Turn &turn() { return *turn_; }
-    const Turn &turn() const { return *turn_; }
+
+    // The turn-phase actions, forwarded to the state machine. Callers talk to
+    // the Model alone instead of reaching through it for the Turn (the
+    // a.getB().getC() shape the course summary warns about). Die values of -1
+    // mean random dice; -testing supplies real ones.
+    void roll(int die1 = -1, int die2 = -1);
+    void next();
+    void beginTurn();
+    std::string_view turnStateName() const;
 
     // Moves an Artificer, paying the Grand Entrance bonus when the move passes
     // over it, then resolves the destination district.
@@ -89,6 +97,8 @@ public:
     int countOwned(DistrictKind kind, const Player &owner) const;
     // Savings plus printed value of every district plus every upgrade bought.
     int totalWorth(const Player &player) const;
+    // In circuit order; the assets display renders from this.
+    std::vector<const OwnableDistrict *> districtsOwnedBy(const Player &player) const;
 
     // The single seam between the two Enchantment implementations: everything
     // else about the square is identical either way.
@@ -141,9 +151,6 @@ public:
     std::size_t solventCount() const;
     const Player *winner() const;
     bool isOver() const { return winner() != nullptr; }
-
-    void printAssets(const Player &player) const;
-    void printAllAssets() const;
 
 private:
     Board board_;

@@ -60,6 +60,14 @@ void Game::setCurrentPlayer(std::size_t index) {
     current_ = index;
 }
 
+void Game::roll(int die1, int die2) { turn_->roll(die1, die2); }
+
+void Game::next() { turn_->next(); }
+
+void Game::beginTurn() { turn_->beginTurn(); }
+
+std::string_view Game::turnStateName() const { return turn_->stateName(); }
+
 void Game::endTurn() {
     if (players_.empty() || solventCount() == 0) return;
     // Only the current Artificer's own debt blocks their turn; one parked
@@ -690,29 +698,12 @@ const Player *Game::winner() const {
     return nullptr;
 }
 
-void Game::printAssets(const Player &player) const {
-    out_ << player.name() << " (" << player.token() << ") holds " << player.reagents()
-              << " Reagents, " << player.freePasses() << " Free-Pass Tokens\n";
+std::vector<const OwnableDistrict *> Game::districtsOwnedBy(const Player &player) const {
+    std::vector<const OwnableDistrict *> owned;
     for (const OwnableDistrict *ownable : board_.ownables()) {
-        if (ownable->owner() != &player) continue;
-        out_ << "  " << ownable->name();
-        if (ownable->isMortgaged()) {
-            out_ << " (mortgaged)";
-        } else if (ownable->upgradeCount() > 0) {
-            out_ << " (" << ownable->upgradeCount() << " upgrades)";
-        }
-        out_ << '\n';
+        if (ownable->owner() == &player) owned.push_back(ownable);
     }
-}
-
-void Game::printAllAssets() const {
-    for (const auto &player : players_) {
-        if (player->isInsolvent()) {
-            out_ << player->name() << " is insolvent\n";
-            continue;
-        }
-        printAssets(*player);
-    }
+    return owned;
 }
 
 bool Game::guildComplete(Guild guild, const Player &owner) const {
