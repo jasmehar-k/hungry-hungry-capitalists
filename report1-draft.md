@@ -162,19 +162,20 @@ Model is an observable subject; the View subscribes as an observer; the Controll
 (duplicate-checked via `std::find`), `removeObserver` (erase-remove) and `notifyObservers`.
 `Game` extends `Subject`; `TextView` extends `Observer`, registering in its constructor and
 deregistering in its destructor — RAII applied to a registration rather than to memory.
-Notification fires once per command rather than once per mutator, because the spec's unit of
-redraw is the command: one command may move an Artificer, pay a toll, transfer a district and
+Notification fires from `GameController::handleCommand`, once per command rather than once per
+mutator, because the spec's unit of redraw is the command: one command may move an Artificer, pay a toll, transfer a district and
 change the turn phase, and the board is drawn once for all of it.
 
 **Where this claim is weak, stated plainly.** Observer's core problem is *one-to-many*
 notification, and this program is one-to-one: a single observer, and one call site where
-`notifyObservers()` iterates a one-element vector. By the second-occurrence rule this is the first
-occurrence, and replacing it with a direct `view.render()` from the command loop would be
-behaviourally identical and shorter. Observer is retained not because the notification needs it,
-but because it is the mechanism by which the course *defines* MVC's Model→View link — the pattern
-earns its place through the compound it belongs to, and removing it would leave an MVC that no
-longer matches Chapter 17's own description. A reviewer who judged it over-built on its own terms
-would be right on the principle.
+`notifyObservers()` iterates a one-element vector. Nor is the trigger a Model state change — no
+`Game` mutator calls `notifyObservers()`, so the Controller is signalling the Subject to signal the
+Observer. By the second-occurrence rule this is the first occurrence, and replacing it with a
+direct `view.render()` from the command loop would be behaviourally identical and shorter. Observer
+is present because Chapter 17 defines MVC as Observer plus Strategy — a reason of taxonomy rather
+than of need. What pays for itself is the separation the notification sits inside: the Model names
+no View, which is what allows `gametest` to drive it headless. A reviewer who judged the
+notification machinery over-built on its own terms would be right on the principle.
 
 #### Strategy, the View→Controller link
 
