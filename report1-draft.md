@@ -348,30 +348,31 @@ occurrence to generalise from. An ordinary class with a clear responsibility is 
 > *After reading the Districts subsection of the specification, would the Observer Pattern be a
 > good pattern to use when implementing the Circuit Board? Why or why not?*
 
-Yes — with a caveat the course's own standard forces me to state. **The Subject is `Game`**, the
-Model owning the board, the players and the turn; **the Observer is `TextView`**. Districts are
-deliberately *not* Subjects: the spec redraws the **entire** board after every command, so
-per-district notification would give forty objects an observer list to trigger the same full
-redraw.
+Yes — and it is used, though for a more precise reason than "the board changes, so notify".
+
+Observer suits a circuit board when there are several views to keep in step, or when the Model is
+mutated from many places that would otherwise each have to remember to refresh the display. Both
+conditions justify it in general; neither is present here, and the answer is more honest for
+saying so.
+
+**The Subject is `Game`**, the Model owning the board, the players and the turn; **the Observer is
+`TextView`**. Districts are deliberately *not* Subjects: the spec redraws the **entire** board
+after every command, so giving forty districts their own observer lists would only trigger the
+same full redraw.
 
 **The triggering event is the completion of a command**, not an individual field write. This
-departs from Chapter 17, which notifies at the end of every mutating method, and the reason is
-that the spec's unit of redraw is the command. A single command may move an Artificer, pay a toll,
-transfer a district and change the turn phase; per-mutator notification would redraw the board
-once for each of those, where the specification asks for one board per command. Notification
-therefore fires from `GameController::handleCommand`.
+departs from Chapter 17, which notifies at the end of every mutating method, because the spec's
+unit of redraw is the command: one command may move an Artificer, pay a toll, transfer a district
+and change the turn phase, and the board is drawn once for all of it. Notification therefore fires
+from `GameController::handleCommand`.
 
-**Whether direct method calls are better suited** is genuinely arguable. Observer's core problem
-is *one-to-many* notification without tight coupling; this program has **one-to-one** — one
-Observer, one Subject, one call site iterating a one-element vector. A pattern is justified at the
-second occurrence of a problem, and this is the first, so a direct `view.render()` would be
-behaviourally identical and simpler.
-
-What Observer does buy is that the Model names no View, so a second display would be an OCP
-extension rather than a modification of tested code — optionality against an enhancement the spec
-itself lists, for 45 lines. What is *not* arguable is the SRP separation underneath: rendering is
-200 lines of geometry with no rule in it, and the rules are exercised headless by the test
-harness. That split stands whether or not the notification between them goes through Observer.
+**Are direct method calls worse suited?** For this program taken alone, no — a `view.render()`
+call from the command loop would be behaviourally identical and shorter, and by the
+second-occurrence rule a single view is the first occurrence, not the second. What settles it is
+not the notification but the compound: Chapter 17 defines MVC as Observer plus Strategy, so
+removing Observer would leave an MVC that no longer matches the pattern being claimed for it.
+Observer earns its place here as MVC's Model→View link rather than because one text view demanded
+it.
 
 ### Design Question 2 — Card-Deck Mechanics for Wandering Market and Enchantment Deck
 
