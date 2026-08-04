@@ -785,9 +785,11 @@ void Game::runAuction(OwnableDistrict &district) {
 
     while (active.size() > 1) {
         Player *bidder = active[index];
+        // Worded as an instruction rather than a question: "raise or withdraw?"
+        // invites typing the word "raise", but a bare number is what is wanted.
         std::ostringstream question;
-        question << bidder->name() << " holds " << bidder->reagents() << ", current bid "
-                 << highest << " - raise or withdraw? [amount/withdraw] ";
+        question << bidder->name() << " holds " << bidder->reagents() << " - enter an amount "
+                 << "above " << highest << ", or \"withdraw\": ";
         const std::string answer = prompt(question.str());
 
         // A blank answer, including end of input, counts as withdrawing, so a
@@ -802,7 +804,8 @@ void Game::runAuction(OwnableDistrict &district) {
         int bid = 0;
         std::istringstream parsed{answer};
         if (!(parsed >> bid) || bid <= highest || bid > bidder->reagents()) {
-            std::cout << "a raise must beat " << highest << " and be within your Reagents\n";
+            std::cout << "type just the number: more than " << highest << " and no more than "
+                      << bidder->reagents() << ", or \"withdraw\"\n";
             continue;  // the same Artificer tries again
         }
         highest = bid;
