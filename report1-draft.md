@@ -1,25 +1,34 @@
-# CS247 Project — Phase 1 Report (draft)
+# ArcaneMarket — Phase 1 Report (draft)
 
-> **Draft for review.** Fill the title page, then read §6 line by line and correct anything
-> that does not match your own account of how the work went — it is your integrity
-> statement, not mine. Export the diagrams from `diagrams/*.png` into the PDF.
+> **Draft for review.**
+>
+> 1. **§8 Lessons Learned is intentionally empty.** The requirements state, in bold, that you
+>    must not use AI tools to write that section. The prompts are listed there for you to answer
+>    in your own words.
+> 2. **§6 must be checked line by line.** The tools table, frequency ratings and reflection
+>    describe *your* experience — correct anything that does not match it.
+> 3. Fill the title page, embed `diagrams/*.png` directly in the PDF, and save as `report.pdf`.
+> 4. **Separate deliverable:** export the full AI conversation transcripts as PDFs, ZIP them, and
+>    upload the ZIP to the Phase 1 report Dropbox on LEARN (§6 requires this).
 
 ---
 
 ## 1. Title Page
 
-- **Name:** _[your name]_
-- **Student ID:** _[your ID]_
-- **UW userid:** _[your userid]_
-- **Group name:** _[group name]_
-- **Game implemented:** ArcaneMarket
+- **Project title:** ArcaneMarket
 - **Course:** CS247 — Software Engineering Principles
+- **Instructor:** Victoria Sakhnini
+- **Student name:** _[full name]_
+- **Student ID:** _[ID number]_
+- **User name:** _[UW userid]_
+- **Submission date:** _[date]_ (deadline August 5th, 11:59 PM; no penalty up to 48 hours late)
 
 ---
 
 ## 2. UML Class Diagram
 
-Source in `uml.md`; rendered images in `diagrams/`.
+Source in `uml.md`; rendered images in `diagrams/`. All diagrams are embedded directly in this
+PDF.
 
 | Image file | Figure | Subject |
 |---|---|---|
@@ -32,537 +41,484 @@ Source in `uml.md`; rendered images in `diagrams/`.
 | `uml-7.png` | 6 | Command (supplementary) |
 | `uml-8.png` | 7 | Simple Factory (supplementary) |
 
-**Figures 1A and 1B together are the class diagram.** It is too large for one page, so it
-is split into two clearly labelled parts. Every major class appears in exactly one part
-with its key attributes and its full public interface. Where a relationship crosses the
-split, the far class appears as a name-only box marked with the part that details it, so
-no relationship is lost at the seam.
+**Figures 1A and 1B together are the class diagram**, split across two clearly labelled parts as
+permitted. Every major class appears in exactly one part with its key attributes and its full
+public interface; where a relationship crosses the split, the far class appears as a name-only
+box marked with the part that details it, so no relationship is lost at the seam.
 
 - **Part A — application and control:** the Observer infrastructure, `TextView`,
-  `ControllerInterface` / `GameController`, `CommandParser`, `Command` and all thirteen
-  concrete commands, and `Turn` with its four states.
+  `ControllerInterface` / `GameController`, `CommandParser`, `Command` and all thirteen concrete
+  commands, and `Turn` with its four states.
 - **Part B — domain model:** `Game` and its economy (`Debt`, `TradeOffer`, the Treasury),
   `Player`, `Board`, the full `District` hierarchy, `Dice`, `CardDeck`, `DistrictFactory`,
   `DistrictSpec`, and the `SaveGame` / `Setup` namespaces.
 
-**Figures 2–7 are supplementary per-pattern views**, referenced from §3. They repeat
-classes already present in 1A/1B, reduced to the participants in a single pattern so its
-shape can be seen without tracing it out of the full diagram.
+**Figures 2–7 are supplementary per-pattern views** referenced from §3, reducing the diagram to
+the participants in one pattern so its shape is visible without tracing it out of the full
+diagram.
 
-**Notation** follows Chapter 8: `+ - #` for visibility, *italics* for pure virtual,
-underline for static, `const` marking query operations, hollow triangle for inheritance,
-filled diamond for composition, hollow diamond for aggregation, dashed open arrow for
-dependency.
+**Notation** follows Chapter 8: `+ - #` for visibility, *italics* for pure virtual, underline for
+static, `const` marking query operations, hollow triangle for inheritance, filled diamond for
+composition, hollow diamond for aggregation, dashed open arrow for dependency.
 
-**Relationship kinds** were chosen using the chapter's decision procedure rather than by
-eye:
+**Relationship kinds** were chosen with the chapter's decision procedure:
 
-- **Composition** (filled diamond) wherever the whole holds the part by value or by
-  `unique_ptr` and destroys it: `Game ◆— Board`, `◆— Player [2..6]`, `◆— Turn`, `◆— Dice`,
-  `◆— CardDeck [0..1]`, `Board ◆— District [40]`, `Turn ◆— TurnState [4]`.
+- **Inheritance** — `Game : Subject`, `TextView : Observer`, and the `District`, `TurnState` and
+  `Command` hierarchies.
+- **Composition** (filled diamond) wherever the whole holds the part by value or `unique_ptr` and
+  destroys it: `Game ◆— Board`, `◆— Player [2..6]`, `◆— Turn`, `◆— Dice`, `◆— CardDeck [0..1]`,
+  `Board ◆— District [40]`, `Turn ◆— TurnState [4]`.
 - **Aggregation** (hollow diamond) for the one `shared_ptr`: `TextView ◇— ControllerInterface`.
   The Controller does not die with the View, which is what separates this from composition.
-- **Association** (plain line) for stored non-owning pointers: `Subject —▶ Observer`, and
-  `OwnableDistrict —▶ Player` with role name `owner` and multiplicity `0..1`, since an
-  unowned district holds `nullptr`.
 - **Dependency** (dashed) for create/use relationships that are not stored:
   `Board ⋯▶ DistrictFactory`, `DistrictFactory ⋯▶ District`, `CommandParser ⋯▶ Command`,
   `SaveGame ⋯▶ Game`.
 
-**Multiplicities** appear on both ends of every association. The most significant are
-`1 Board — 40 District`, `1 Game — 2..6 Player`, and `1 Turn — 4 TurnState`. Crafting
-Guild membership is *not* a multiplicity here: `Guild` is an `enum class` value carried by
-each `Workshop`, not a class, so guild sizes (Ember 4, Smoke 3, Arcane 4, Gilded 5) are
-enforced as a rule in `Game::guildComplete`, which counts actual membership rather than
-assuming a fixed group size.
+**Multiplicities** appear on both ends of every association; the most significant are
+`1 Board — 40 District`, `1 Game — 2..6 Player`, and `1 Turn — 4 TurnState`. Crafting Guild
+membership is deliberately *not* shown as a multiplicity: `Guild` is an `enum class` value carried
+by each `Workshop`, not a class, so guild sizes (Ember 4, Smoke 3, Arcane 4, Gilded 5) are
+enforced by `Game::guildComplete`, which counts actual membership rather than assuming a fixed
+group size.
 
-Following Chapter 8, method **parameters are not associations**: `landOn(Game&, Player&)`
-passes references at call time, which the chapter explicitly excludes from association.
-Only stored references and pointers are drawn as lines.
+Following Chapter 8, method **parameters are not associations**: `landOn(Game&, Player&)` passes
+references at call time, which the chapter explicitly excludes. Only stored references and
+pointers are drawn as lines.
 
 ---
 
 ## 3. Design Patterns Used
 
-Six patterns are applied. Each is given as pattern name, where it is used, why it was chosen
-(including the alternatives rejected), and how it is implemented. Patterns that were considered
-and deliberately **not** used are listed at the end, since rejecting one is also a design
-decision.
-
----
+Six patterns are applied. Patterns considered and deliberately rejected are listed at the end,
+since rejecting one is also a design decision.
 
 ### 3.1 Model-View-Controller
 
-**Where it is used.** `Game` is the Model (`game.h` / `game.cpp`). `TextView` is the View
-(`textview.h` / `textview.cpp`). `ControllerInterface` and its concrete `GameController` are the
-Controller (`controller.h` / `controller.cpp`). See Figure 2.
+**Where it is used.** `Game` is the Model (`game.h`/`.cpp`); `TextView` is the View
+(`textview.h`/`.cpp`); `ControllerInterface` and `GameController` are the Controller
+(`controller.h`/`.cpp`). See Figure 2.
 
-**Why it was chosen.** The spec requires the board to be redrawn after every command, requires a
-text display now, and lists a graphical display as an optional enhancement. The rules of the game
-therefore have to be expressed independently of how they are shown.
+**Why it was chosen.** The spec requires the board redrawn after every command, a text display
+now, and lists a graphical display as an enhancement, so the rules must be expressed independently
+of how they are shown. *Alternatives rejected:* **one class holding rules and printing** — the
+rules could then only be tested by capturing stdout, and a second display would mean editing the
+rules; **Model and View with no Controller** — command parsing and legality would live inside the
+display class; **Controller mediating all data** — Chapter 17 states this "is not MVC" and adds
+coupling, since the View can query the Model directly.
 
-*Alternatives considered and rejected:*
-
-- **One class holding both rules and printing.** Rejected because the rules could then only be
-  tested by capturing standard output, and adding the graphical display would mean editing the
-  rules themselves.
-- **Model and View with no Controller, the View interpreting input directly.** Rejected because
-  command parsing and legality checking would live inside the display class, so changing the
-  interpreter would mean touching rendering code.
-- **Controller mediating all data, with the View asking the Controller for state.** Rejected on
-  Chapter 17's own advice, which says routing all data through the Controller "is not MVC" and
-  creates unnecessary coupling; the View can query the Model directly.
-
-**How it is implemented.** `Game` holds all state and extends `Subject`, and names no View.
-`TextView` holds a `Game&` and a `shared_ptr<ControllerInterface>`, registers itself as an
-Observer of the Model, and on notification re-queries the Model and redraws. User input arrives
-at `TextView::handleInput`, which forwards it to the Controller; `GameController` mutates the
-Model and then fires a single notification for the whole command.
-
----
+**How it is implemented.** `Game` holds all state, extends `Subject`, and names no View.
+`TextView` holds a `Game&` and a `shared_ptr<ControllerInterface>`, registers as an Observer, and
+on notification re-queries the Model and redraws. Input reaches `TextView::handleInput`, which
+forwards to the Controller; `GameController` mutates the Model, then fires one notification for
+the whole command.
 
 ### 3.2 Observer
 
-**Where it is used.** `Subject` and `Observer` in `observer.h`; `Game` inherits `Subject`;
-`TextView` inherits `Observer`. See Figure 2.
+**Where it is used.** `Subject` and `Observer` in `observer.h`; `Game : Subject`;
+`TextView : Observer`. See Figure 2.
 
-**Why it was chosen.** The Model must be able to trigger a redraw without knowing what displays
-exist, so that the graphical-display enhancement could be added without touching `Game`.
+**Why it was chosen.** The Model must trigger redraws without knowing what displays exist, so the
+graphical-display enhancement could be added without touching `Game`. *Alternatives rejected:*
+**`Game` holding a `TextView*`** — couples the Model to one concrete View, and a second view would
+require editing `Game`; **the main loop polling `view.render()`** — moves the "something changed"
+decision out of the Model, and a view attached later would never be driven.
 
-*Alternatives considered and rejected:*
-
-- **`Game` holding a `TextView*` and calling `render()` directly.** Rejected because it couples
-  the Model to one concrete View; a second simultaneous view would require editing `Game`.
-- **The main loop calling `view.render()` after each command (polling).** Rejected because it
-  moves the "something changed" decision out of the Model, and a view attached later in the
-  program's life would not be driven at all.
-
-**How it is implemented.** `Subject` keeps a `vector<Observer*>` of non-owning pointers, with
-`addObserver` (duplicate-checked with `std::find`), `removeObserver` (erase-remove) and
+**How it is implemented.** `Subject` keeps a `vector<Observer*>` of non-owning pointers with
+`addObserver` (duplicate-checked via `std::find`), `removeObserver` (erase-remove) and
 `notifyObservers`. `TextView` registers in its constructor and deregisters in its destructor.
-Notification is fired once per command from `GameController::handleCommand` rather than from
-every Model mutator, because the spec redraws the whole board after each command, so the command
-— not the individual field write — is the real unit of change.
-
----
+Notification fires once per command from `GameController::handleCommand` rather than from every
+mutator, because the spec redraws the whole board per command.
 
 ### 3.3 Template Method
 
 **Where it is used.** `OwnableDistrict::landOn` (declared `final`) with the pure virtual hook
-`OwnableDistrict::computeToll`; overridden by `Workshop`, `Forge` and `Depot`. See Figure 3.
+`computeToll`, overridden by `Workshop`, `Forge` and `Depot`. See Figure 3.
 
-**Why it was chosen.** Every visit to an ownable district follows the same fixed sequence —
-unowned, so offer it; owned by the visitor, so nothing; mortgaged, so nothing; otherwise charge —
-but the amount charged is computed three entirely different ways.
+**Why it was chosen.** Every visit to an ownable district follows one fixed sequence — unowned so
+offer it; owned by the visitor so nothing; mortgaged so nothing; otherwise charge — but the amount
+is computed three different ways. *Alternatives rejected:* **a single `landOn` with a `switch` on
+`DistrictKind`** — adding a kind would edit that function, and the invariant sequence would sit
+interleaved with three pricing rules; **Strategy, injecting a `TollPolicy`** — the pricing rule is
+fixed by the district's type and never changes at runtime, so a swappable policy adds an
+allocation and indirection for flexibility the game never uses.
 
-*Alternatives considered and rejected:*
-
-- **A single `landOn` with a `switch` on `DistrictKind`.** Rejected because adding a district
-  kind would mean editing that function, and the invariant sequence would sit interleaved with
-  three unrelated pricing rules.
-- **Strategy, injecting a `TollPolicy` object into each district.** Rejected because the pricing
-  rule is fixed by the district's type and never changes at runtime; a swappable policy object
-  would add an allocation and a level of indirection to buy flexibility the game never uses.
-
-**How it is implemented.** `landOn` is `final`, so no subclass can reorder or skip a step of the
-sequence, and `computeToll` is a protected pure virtual — the single point of variation.
-`Workshop` indexes a six-entry toll table by upgrade level and doubles an unimproved toll when
-the owner holds the whole Crafting Guild; `Forge` indexes a levy table by how many Forges the
-owner controls; `Depot` multiplies the dice total by four, or ten when one Artificer holds both.
-
----
+**How it is implemented.** `landOn` is `final` so no subclass can reorder or skip a step, and
+`computeToll` is a protected pure virtual — the single point of variation. `Workshop` indexes a
+six-entry table by upgrade level, doubling an unimproved toll when the Guild is complete; `Forge`
+indexes a levy table by Forges owned; `Depot` multiplies the dice total by 4, or 10 when one
+Artificer holds both.
 
 ### 3.4 State
 
-**Where it is used.** `Turn` is the Context (`turn.h` / `turn.cpp`); `TurnState` is the state
-interface, with `PreRollState`, `PostRollState`, `LockupState` and `AwaitingTradeResponseState`
-(`turnstate.h` / `turnstate.cpp`). See Figures 4 and 5.
+**Where it is used.** `Turn` is the Context (`turn.h`/`.cpp`); `TurnState` with `PreRollState`,
+`PostRollState`, `LockupState`, `AwaitingTradeResponseState` (`turnstate.h`/`.cpp`). Figures 4–5.
 
-**Why it was chosen.** Which commands are legal depends on the phase of the turn: `roll` only
-when a roll is pending, `next` only when it is not, rolling in The Lockup runs an exit procedure
-instead of moving, and while a trade offer is outstanding only `accept` and `reject` apply.
+**Why it was chosen.** Which commands are legal depends on the turn phase: `roll` only when a roll
+is pending, `next` only when it is not, rolling in The Lockup runs an exit procedure instead of
+moving, and while a trade offer stands only `accept`/`reject` apply. *Alternatives rejected:* **an
+`enum` with `if`/`else` chains in each command** — Chapter 16's argument, that every new phase
+edits every command and the logic scatters; **a set of booleans** (`hasRolled`, `isDetained`,
+`awaitingTrade`) — they admit contradictory combinations no rule permits, and nothing enforces
+legal transitions.
 
-*Alternatives considered and rejected:*
-
-- **An `enum TurnPhase` with `if`/`else` chains in each command.** Rejected on Chapter 16's
-  argument: every new phase requires editing every command, and the phase logic ends up scattered
-  across the code rather than localised.
-- **A set of booleans (`hasRolled`, `isDetained`, `awaitingTrade`).** Rejected because they admit
-  contradictory combinations that no rule permits, and nothing enforces which transitions are
-  legal.
-
-**How it is implemented.** `Turn` owns all four states as `unique_ptr` members constructed once,
-and selects the active one through a raw non-owning `state_` pointer, so a transition allocates
-nothing. Each concrete state holds a `Turn&` and drives its own transitions by calling
-`setState`. `Turn` additionally records `resume_`, the phase a trade offer interrupted, because
-an offer may be made before *or* after rolling and the Context cannot assume a fixed state to
-return to.
-
----
+**How it is implemented.** `Turn` owns all four states as `unique_ptr` members built once and
+selects the active one through a raw non-owning `state_` pointer, so a transition allocates
+nothing. Each state holds a `Turn&` and drives its own transitions via `setState`. `Turn` also
+records `resume_`, the phase a trade offer interrupted, because an offer may be made before *or*
+after rolling.
 
 ### 3.5 Command
 
 **Where it is used.** The `Command` interface and thirteen concrete commands (`RollCommand`,
 `NextCommand`, `MortgageCommand`, `UnmortgageCommand`, `UpgradeCommand`, `TradeCommand`,
 `AcceptCommand`, `RejectCommand`, `InsolventCommand`, `AssetsCommand`, `AllCommand`,
-`SaveCommand`, `MessageCommand`) in `command.h` / `command.cpp`; `CommandParser` in
-`commandparser.*`; `GameController` acts as the Invoker and `Game` as the Receiver. See Figures
-1A and 6.
+`SaveCommand`, `MessageCommand`) in `command.h`/`.cpp`; `CommandParser`; `GameController` as
+Invoker; `Game` as Receiver. See Figures 1A and 6.
 
-**Why it was chosen.** The spec defines eleven commands with different arities — from bare `next`
-to `trade <name> <give> <receive>` — and requires that misspelled commands be handled gracefully
-rather than crashing.
+**Why it was chosen.** Eleven spec commands with different arities, from bare `next` to
+`trade <name> <give> <receive>`, and misspellings must fail gracefully. *Alternatives rejected:*
+**an `if`/`else` chain on the verb in the controller** — mixes parsing with execution and grows
+without bound; **a `map<string, function<void(istream&)>>`** — arguments would be re-parsed inside
+each handler or captured untyped, whereas binding them as typed members at construction is what
+Chapter 20 prescribes and is what makes each request self-contained.
 
-*Alternatives considered and rejected:*
-
-- **An `if`/`else` chain on the verb inside the controller.** Rejected because it mixes parsing
-  with execution and grows without bound; every new command would mean editing the controller.
-- **A `map<string, function<void(istream&)>>` of handlers.** Rejected because arguments would
-  then either be re-parsed inside each handler or captured untyped in a lambda. Binding them as
-  typed data members at construction is what Chapter 20 prescribes and is what makes each request
-  a self-contained object.
-
-**How it is implemented.** Each concrete command stores its receiver (`Game&`) and its parsed
-arguments as data members, so it is complete before it is executed. `CommandParser::parse` builds
-the right command from an input line and returns `nullptr` for anything it does not recognise,
-which is the graceful-failure path the spec requires. `GameController` fires `execute()` through
-the interface without knowing which command it holds. `undo()` is deliberately absent: Chapter 20
-adds it only "when undo is required", and ArcaneMarket has no undo.
-
----
+**How it is implemented.** Each command stores its receiver (`Game&`) and parsed arguments as data
+members, so it is complete before execution. `CommandParser::parse` builds the right command and
+returns `nullptr` for anything unrecognised — the graceful-failure path. `GameController` fires
+`execute()` through the interface. `undo()` is deliberately absent: Chapter 20 adds it only "when
+undo is required", and ArcaneMarket has none.
 
 ### 3.6 Simple Factory
 
-**Where it is used.** `DistrictFactory::create` (`districtfactory.*`), called by `Board`'s
-constructor; the same idiom appears in `CommandParser::parse`. See Figure 7.
+**Where it is used.** `DistrictFactory::create` (`districtfactory.*`), called from `Board`'s
+constructor; the same idiom in `CommandParser::parse`. See Figure 7.
 
-**Why it was chosen.** `Board` must build 40 districts of twelve different kinds from the static
-board table without the names of concrete district classes spreading through the code.
+**Why it was chosen.** `Board` must build 40 districts of twelve kinds without concrete class names
+spreading through the code. *Alternatives rejected:* **a `switch` inside `Board`'s constructor** —
+puts every concrete name into `Board` and mixes construction with circuit management; **GoF Factory
+Method with an abstract creator hierarchy** — Chapter 12 says Simple Factory suits "a small, fixed
+set of product types that you do not expect to grow", which the 40-square circuit is, and warns
+against reaching for factories when a constructor would do.
 
-*Alternatives considered and rejected:*
-
-- **A `switch` inside `Board`'s constructor.** Rejected because it puts every concrete district
-  class name into `Board` and mixes object construction with circuit management.
-- **GoF Factory Method with an abstract creator hierarchy.** Rejected deliberately. Chapter 12
-  states that Simple Factory suits "a small, fixed set of product types that you do not expect to
-  grow" — which the 40-square circuit is — and warns against reaching for factories when a
-  constructor would do. Building a creator hierarchy purely so the stronger pattern could be
-  claimed would be over-engineering.
-
-**How it is implemented.** A single static `create` takes a `DistrictSpec` from the board table,
-switches on its `kind`, and returns `unique_ptr<District>`. It is the one place in the program
-where concrete district class names appear. It is named the Simple Factory *idiom* rather than
-Factory Method because there is no creator hierarchy, which is precisely the structural
-difference between the two.
-
----
+**How it is implemented.** One static `create` takes a `DistrictSpec` from the board table,
+switches on its `kind`, and returns `unique_ptr<District>`. It is the only place concrete district
+names appear. It is named the Simple Factory *idiom* rather than Factory Method because there is no
+creator hierarchy — precisely the structural difference between the two.
 
 ### 3.7 Patterns considered and deliberately not used
 
-- **Decorator** for Workshop upgrades. Rejected; the reasoning is Design Question 3 below.
-- **Iterator** for traversing the circuit. The board is a `vector<unique_ptr<District>>` indexed
-  directly by square number, and movement is arithmetic modulo 40. A hand-written iterator would
-  add notation without removing any indirection.
-- **Strategy** as a separate claim. Chapter 17 describes the Controller as the View's Strategy and
+- **Decorator** for upgrades — see Design Question 3.
+- **Iterator** for the circuit — the board is a `vector` indexed by square number and movement is
+  arithmetic modulo 40; a hand-written iterator would add notation without removing indirection.
+- **Strategy** as a separate claim — Chapter 17 describes the Controller as the View's Strategy and
   `TextView` does hold a `shared_ptr<ControllerInterface>`, but only one concrete controller
-  exists, so nothing demonstrates swappability. It is reported as part of MVC's compound
-  structure rather than claimed in its own right.
-
-## 4. Design Questions
-
-### Design Question 1 — Would the Observer Pattern be a good fit for the Circuit Board?
-
-**Yes, but the granularity matters more than the yes.**
-
-The real payoff is that `Game` holds no reference to any view. It calls `notifyObservers()` and
-is done. That is what would make the graphical-display bonus additive rather than invasive: a
-second view attaches to the same Model with no Model change, and both redraw from one
-notification.
-
-The caveat worth stating is that the spec redraws the **entire** board after every command. So
-per-district Subjects would be pure overhead — a change to one district triggers a full redraw
-regardless, and there is no partial repaint to optimize. The right shape is one Subject (`Game`)
-with the whole `TextView` as a single Observer. Chapter 17's worked example puts a Composite
-inside the Model so notifications climb leaf-to-root; that machinery buys nothing when every
-update repaints everything, so it was deliberately not copied.
-
-**A consequence actually encountered, not hypothesised:** because every mutator notified, six
-`addPlayer` calls during setup printed six boards. Observer was behaving correctly; the fix
-belonged in *when* notification fires, which is now the command boundary (§3.1). The lesson is
-that Observer decides *who* learns about a change, but the designer still has to decide what
-counts as one change.
-
-### Design Question 2 — Modelling the decks as a real shuffled deck: which pattern, and how?
-
-**What the spec requires** is a probability distribution (Tables 2 and 3), not a deck. That is
-what `cards.h` implements: integer weights — twenty-fourths for Table 2, eighteenths for Table 3
-— drawn with a single uniform ticket. Seven classes wrapping seven integer deltas would have
-been pattern-padding.
-
-**A real deck is a genuinely different mechanic, not a reskin.** A distribution is *memoryless*:
-−200 can come up twice in a row and the odds never move. A deck is *stateful*: each card leaves
-the deck when drawn, so every later draw has different odds, and counting cards becomes a
-legitimate strategy. Over one full pass a deck deals Table 3 **exactly**, which a distribution
-only approaches in the limit.
-
-**It is implemented** as the optional `CardDeck` (`-deck` at startup): eighteen cards, one per
-weight unit, dealt from the front and reshuffled on exhaustion. Both implementations meet behind
-a single seam, `Game::drawEnchantmentValue()`, so the `EnchantmentDeck` square is identical
-either way and the choice is made at runtime rather than compile time — which is what the spec
-requires of an enhancement.
-
-**What building it changed about the answer.** The plan had assumed each card would need to be a
-Command object. It did not. The seam turned out to be one function returning an `int`, so the
-deck is a container of values and a class per card would have bought nothing. The honest answer
-to "which pattern" is therefore: **none beyond what a container already gives you**. Iterator is
-the closest fit conceptually — deal from the front, reshuffle at the end — but `std::vector`
-with an index already provides it, and wrapping that in a hand-written iterator would be
-notation, not design.
-
-### Design Question 3 — Is Decorator a good pattern for Workshop Upgrades?
-
-**No.** Four reasons, strongest first:
-
-1. **Tolls are a table, not a composition.** Tinder's tolls run 2, 10, 30, 90, 160, 250 —
-   neither additive nor multiplicative. Decorator composes behaviour, but there is no per-upgrade
-   delta to compose; each level is an independent table entry. The pattern would wrap five
-   objects only to index an array.
-2. **Selling breaks the chain.** An Artificer may sell one upgrade at a time. Decorator has no
-   removal protocol — you would have to unwrap and rebuild the chain, which is not what the
-   pattern is for.
-3. **Identity churn.** Re-wrapping produces a *different object*. `Player` and `Board` hold
-   pointers to the district; every purchase or sale would invalidate them or leave them pointing
-   at a stale wrapper. This is the decisive one: ownership in this game is recorded by pointer
-   identity.
-4. **Bounded at five.** Decorator earns its keep with open-ended composition. Upgrades cap at
-   four Forge Stations plus a Master Atelier.
-
-**Implemented instead:** an `int upgrades_` on `Workshop` indexing a fixed toll table. The
-guild-complete doubling on unimproved Workshops is a *rule* evaluated at toll time, not a
-decoration of the object.
+  exists, so nothing demonstrates swappability. Reported as part of MVC rather than claimed alone.
 
 ---
 
-## 5. Challenges and How They Were Addressed
+## 4. Answers to Design Questions
 
-Most of these were found by deliberately testing rules the spec states but play rarely exercises,
-rather than by waiting for them to surface.
+### Design Question 1 — Observer Pattern for the Circuit Board
 
-### 5.1 The spec contradicts itself in two places
+> *After reading the Districts subsection of the specification, would the Observer Pattern be a
+> good pattern to use when implementing the Circuit Board? Why or why not?*
 
-The board figure and Table 1 disagree. The figure prices **Veil-watch at 180**, Table 1 says
-**170**; the figure's legend lists **five** square numbers for **four** Forges, implying square
-14 is a Forge when the save-file ordering places **Westgate Depot** there (between Coal-gate 13
-and Mist-forge 16). Both were resolved in favour of Table 1 and the save-file ordering, since
-those are internally consistent with the toll tiers and upgrade costs. Documented rather than
-silently chosen.
+Yes, and it is used. **The Subject is `Game`** — the Model owning the board, the players and the
+turn — and **the Observer is `TextView`**. Districts are deliberately *not* Subjects. A
+per-district Subject would let one square announce its own change, but the spec redraws the
+**entire** board after every command, so there is no partial repaint for that finer granularity to
+optimise; it would add an observer list to all forty districts to trigger the same full redraw.
 
-### 5.2 Backward movement paid the Grand Entrance bonus
+**The event that triggers notification is the completion of a command**, not an individual field
+write. This was a deliberate departure from Chapter 17, which notifies at the end of every mutating
+method. One command can move an Artificer, pay a toll, transfer a district and change the turn
+phase; notifying per mutation redrew the board four times for one command. Notification therefore
+fires once, from `GameController::handleCommand`.
 
-`passedGrandEntrance(from, to)` tested `to < from`, which is true for *any* backward move — so a
-Wandering Market sending an Artificer from square 5 to square 2 wrongly paid 200 Reagents. The
-destination alone cannot distinguish a forward lap from a backward step. The signature now takes
-the step count and pays only for `steps > 0`. Later extended to count laps, so a `-testing` roll
-that crosses twice pays twice.
+**Compared with direct method calls**, Observer is better suited here for one concrete reason:
+`Game` never names a View. A direct `TextView*` inside `Game` would work today, but the
+graphical-display enhancement would then require editing the Model, and two simultaneous views
+would be impossible. With Observer a second view attaches by registering itself and the Model is
+untouched. The cost is one indirection and a lifetime contract — `TextView` registers in its
+constructor and deregisters in its destructor — which is small against that benefit.
 
-### 5.3 A save/load cycle resurrected an eliminated Artificer
+### Design Question 2 — Card-Deck Mechanics for Wandering Market and Enchantment Deck
 
-The save format has no field for insolvency, and `save` wrote every Artificer in the roster. An
-insolvent one came back as a normal player holding 0 Reagents — and, being first in the file,
-took the first turn. `save` now writes only solvent Artificers, with `numPlayers` as the solvent
-count. This mattered doubly because loading is the spec's top marking priority.
+> *Suppose we wanted to model the Wandering Market and Enchantment Deck more closely after
+> card-deck mechanics, with a shuffled deck drawn one card at a time and reshuffled when
+> exhausted. Is there a suitable design pattern you could use? How would you structure it?*
 
-### 5.4 An Artificer who could not pay the Lockup fine was detained forever
+The base spec defines both squares as probability *distributions* (Tables 2 and 3), and that is
+what `cards.h` implements with integer weights. A deck is a different mechanic, not a reskin: a
+distribution is memoryless, so −200 can recur immediately, whereas a deck is stateful — each card
+leaves it when drawn, shifting the remaining odds and making card-counting a real strategy. Over
+one full pass a deck deals Table 3 exactly.
 
-On the third turn the spec forces the fine or a token. The code checked affordability first and
-printed "cannot pay", so a poor Artificer stayed detained with `lockupTurns` climbing past three
-and no way out — they could not even declare insolvency, because no debt had been registered.
-The fine now goes through the ordinary debt path, which blocks the turn until it is settled or
-insolvency is declared.
+**The implemented deck** (`CardDeck`, enabled with `-deck`) holds eighteen cards, one per Table 3
+weight unit, dealt from the front and reshuffled on exhaustion. Because every current card is
+simply a Reagent delta, the deck is a `vector<int>` and **no pattern beyond a container is
+warranted**; wrapping seven integers in seven classes would be notation, not design. Both
+implementations meet behind one seam, `Game::drawEnchantmentValue()`.
 
-### 5.5 The Lockup exit procedure offered only one of its three routes
+**If we were to extend the design** with heterogeneous card types — "advance to Grand Entrance",
+"receive a Free-Pass Token" — the representation would have to change, and **Command** is the
+pattern that fits: an abstract `EnchantmentCard` with a single `apply(Game&, Player&)` operation,
+each concrete card encapsulating its own effect. The deck would become
+`vector<unique_ptr<EnchantmentCard>>`. Adding a card type would then mean adding one class and one
+line in the deck's build function; the deck's draw and reshuffle logic would not change, which is
+the Open–Closed property the question asks about. `CardDeck` could be refactored to this by
+changing its element type alone — nothing outside it depends on the element being an `int`.
 
-Spec p. 7 lists three ways out — roll doubles, pay 50 Reagents, or spend a Free-Pass Token —
-available on any detained turn. The implementation only ever rolled for doubles and made the fine
-compulsory on the third turn, so an Artificer holding 800 Reagents and a token was still stuck
-hoping for doubles: typing `pay` returned "I don't understand". Found by re-reading the spec
-against the code. Rolling now prompts for the exit route, and asks nothing when neither is
-affordable, which preserves 5.4's debt path.
+### Design Question 3 — Decorator Pattern for Upgrades
 
-### 5.6 Settling the Lockup fine did not finish the exit
+> *Is the Decorator Pattern a good pattern to use when implementing Upgrades on Workshop
+> districts? Why or why not? Consider how Toll Fees are calculated with and without upgrades, and
+> how selling upgrades affects the object structure.*
 
-Once 5.4 parked the fine as a debt, settling it released nobody: the Artificer paid, stayed
-detained, and never made the move the spec requires ("then move the dice total"). Next turn they
-would be charged **again**. The debt now carries the fact that it is a Lockup fine plus the roll
-it owes, and settling it releases and moves them.
+**No.** Decorator would model an upgraded Workshop as a chain: a base `Workshop` wrapped by one
+`UpgradeDecorator` per level, each `computeToll` calling the wrapped object's and adjusting the
+result. That works only if each upgrade contributes a *composable* increment.
 
-### 5.7 Receiving a mortgaged district drove Reagents negative
+It does not. Tinder's tolls run 2, 10, 30, 90, 160, 250 — neither additive nor multiplicative, so
+each decorator would have to know the absolute figure for its own level and discard the wrapped
+value entirely. The chain would exist purely to count how many wrappers deep it was.
 
-The 10% transfer charge was subtracted directly with no affordability check, taking one Artificer
-to **−22 Reagents**. The fix differs by path, deliberately: a **trade** is voluntary, so it is
-now *refused* up front if either side cannot cover the charge; an **insolvency transfer** is not
-voluntary, so its fees are accumulated and routed through the debt system.
+**Selling an upgrade is where it breaks structurally.** An Artificer may sell one level at a time,
+which means removing a decorator from the chain. Decorator has no removal protocol: the district
+would have to be unwrapped and rebuilt, and because re-wrapping produces a *different object*,
+every `Player` and `Board` pointer recording ownership would be left pointing at a stale wrapper.
+Ownership in this game is recorded by pointer identity, so that is decisive.
 
-### 5.8 The debt system had one slot, and silently forgave debts
+**A counter achieves the same effect with far less complexity**, and is what was implemented: an
+`int upgrades_` on `Workshop` indexing a fixed six-entry toll table, so `computeToll` is one array
+lookup, buying is `+1`, selling is `−1`, and the object's identity never changes. Decorator also
+earns its keep on open-ended composition, whereas upgrades cap at five. The guild-complete doubling
+on unimproved Workshops is applied as a rule at toll time rather than as another decoration.
 
-Chasing 5.7 exposed a deeper problem. The whole debt system was three fields on `Game`, so a
-second debt overwrote the first. Normally safe — a turn cannot end while the current Artificer
-owes — but insolvency charges mortgage fees to the **creditor**, who is not the current player,
-so that one debt outlives its turn. A reproduction showed a creditor's 26-Reagent obligation
-being erased by an unrelated debt, leaving them 26 Reagents richer with the Treasury unpaid.
+---
 
-Replaced with `std::map<Player*, Debt>`, plus a guard that an Artificer who owes anything may not
+## 5. Challenges & How You Addressed Them
+
+### 5.1 The specification contradicts itself
+
+**The challenge.** The board figure and Table 1 disagree in two places. The figure prices
+Veil-watch at 180 where Table 1 says 170, and the figure's legend lists five square numbers for
+four Forges, implying square 14 is a Forge when the save-file ordering places Westgate Depot there
+(between Coal-gate 13 and Mist-forge 16). Building from the wrong source would corrupt every toll
+downstream.
+
+**Approaches considered.** Following the figure; following Table 1; or picking whichever seemed
+more authoritative case by case.
+
+**Resolution.** Both resolved in favour of Table 1 and the save-file ordering, because those two
+are internally consistent with each other and with the upgrade costs and six toll tiers, while the
+figure is not. Recorded in the project notes rather than decided silently, so it can be defended.
+
+### 5.2 Distinguishing a forward lap from a backward move
+
+**The challenge.** `passedGrandEntrance(from, to)` tested `to < from`, which is true for *any*
+backward move — so a Wandering Market sending an Artificer from square 5 to square 2 wrongly paid
+the 200-Reagent bonus.
+
+**Approaches considered.** Comparing destination against origin (the broken version); tracking a
+lap count on `Player`; passing the direction of travel alongside the destination.
+
+**Resolution.** The destination alone cannot carry this information, so the signature takes the
+**step count** instead, paying only when `steps > 0`. Later extended from a boolean to a lap count,
+because `-testing` accepts dice totals large enough to cross Grand Entrance twice in one move.
+
+### 5.3 A save/load cycle resurrected eliminated Artificers
+
+**The challenge.** The save format has no field for insolvency, and `save` wrote every Artificer in
+the roster. A bankrupt one reloaded as a normal player holding 0 Reagents and, being first in the
+file, took the first turn. Loading is the spec's top marking priority, so this mattered doubly.
+
+**Approaches considered.** Adding a non-standard insolvency field (which would break the required
+format); keeping insolvent players in the file and filtering on load; excluding them at save time.
+
+**Resolution.** Excluding at save time, with `numPlayers` written as the solvent count. The format
+stays exactly as specified, and an eliminated Artificer no longer exists in the saved game — which
+is what elimination means.
+
+### 5.4 A rule spanning two subsystems left a player permanently stuck
+
+**The challenge.** On the third turn in The Lockup the spec forces the fine or a token. The code
+checked affordability first and printed "cannot pay", so an Artificer with 10 Reagents stayed
+detained indefinitely, unable even to declare insolvency because no debt had been registered.
+
+**Approaches considered.** Special-casing the fine as a distinct obligation; releasing the
+Artificer free when they cannot pay; routing the fine through the existing debt mechanism.
+
+**Resolution.** The third. The fine goes through `payTreasury`, which parks a debt when
+unaffordable, and the debt blocks the turn until settled or insolvency is declared. This exposed a
+follow-on defect — settling the debt released nobody and never made the required move, so the
+Artificer would be charged again next turn. The `Debt` record now carries the fact that it is a
+Lockup fine plus the roll it owes, and settling it completes the exit.
+
+### 5.5 One debt slot silently forgave obligations
+
+**The challenge.** Fixing a negative-balance bug — a mortgaged district transfer subtracted its 10%
+fee with no affordability check, taking one Artificer to −22 Reagents — exposed something larger.
+The whole debt system was three fields on `Game`, so a second debt overwrote the first. That is
+normally safe, because a turn cannot end while the current Artificer owes; but insolvency charges
+mortgage fees to the **creditor**, who is not the current player, so that debt outlives its turn. A
+reproduction showed a creditor's 26-Reagent obligation erased by an unrelated debt, leaving them
+richer and the Treasury unpaid, with no error message.
+
+**Approaches considered.** Leaving it and documenting the limitation; resolving the creditor's fee
+immediately with a modal raise-funds loop during another player's turn; tracking debts per
+Artificer.
+
+**Resolution.** A `map<Player*, Debt>`, plus a guard that an Artificer who owes anything may not
 roll. The guard is what makes one debt per player *sufficient*: without it, a player could begin a
 turn owing the Treasury, roll into a toll, and owe two creditors at once — a situation insolvency
 has no answer for. It is also closer to the spec, which resolves a shortfall on the spot.
 
-### 5.9 Loading accepted impossible districts
+### 5.6 Verifying rules that play cannot exercise
 
-Owner and upgrades were validated independently, so `Tinder GUILD -1` (unowned but mortgaged) and
-`Tinder GUILD 3` (unowned but upgraded) both loaded. Mortgaging and upgrading are owner actions;
-a district held by the Guild must be plain. Now rejected with a specific message.
+**The challenge.** Tables 2 and 3 are probability distributions. A transposed weight produces
+plausible output forever; no amount of playing reliably reveals it.
 
-### 5.10 Malformed input silently did something else
+**Approaches considered.** Re-reading the tables by eye; asserting on individual draws; measuring
+the distribution statistically.
 
-`roll 1 2` without `-testing` rolled random dice, ignoring the arguments; so did `roll 1`,
-`roll abc` and `roll 4x 2` *inside* testing mode. Silently doing something other than what was
-typed is worse than refusing. Each now reports specifically.
+**Resolution.** Compile-time and statistical checks together. The weights are asserted to sum to 24
+and 18 at compile time, and a harness draws 200,000 outcomes from each table and compares observed
+frequencies against the spec within a tolerance. The same harness verifies the shuffled deck's
+defining property — that 100 consecutive passes each deal exactly Table 3.
 
-### 5.11 The renderer threw `std::length_error`
+### 5.7 Silent failure on malformed input
 
-When the token string exceeded a 12-character cell, the padding length underflowed as an unsigned
-value. The root cause was not the arithmetic but that nothing enforced the spec's 2–6 player cap,
-so `Game::addPlayer` now rejects a seventh Artificer and a duplicate token, with clamping as a
-second line of defence.
+**The challenge.** `roll 1 2` without `-testing` rolled random dice and ignored the arguments; so
+did `roll 1`, `roll abc` and `roll 4x 2` inside testing mode. Doing something other than what was
+typed, without saying so, is worse than refusing.
 
-### 5.12 A prompt that invited the wrong answer
+**Approaches considered.** Letting the parser print diagnostics directly; returning `nullptr` and
+accepting the generic "I don't understand"; introducing a command that reports a refusal.
 
-Live play exposed a wording problem: the auction prompt read "raise or withdraw? [amount/withdraw]",
-which invites typing the word "raise" when it wants a bare number. Three inputs were rejected
-before the right form was found. Reworded as an instruction — `enter an amount above 0, or
-"withdraw"` — with the rejection message naming the actual ceiling.
-
-### 5.13 An ambiguity the spec does not resolve
-
-If every Artificer withdraws from an auction before any bid, the survivor's "final bid" does not
-exist. Rather than transfer a district for nothing, it stays with the Guild. Flagged here because
-the spec is genuinely silent and a different reading is defensible.
+**Resolution.** The third. `MessageCommand` carries a specific diagnostic, so the parser stays free
+of console output while the user gets a precise message. A related robustness fix: an unrecognised
+command-line argument used to abort the program entirely — the wrong failure mode at a demo — so
+unknown arguments now warn and continue.
 
 ---
 
 ## 6. AI Tool Usage Disclosure
 
-> **Read and correct this section before submitting.** It must match your own account.
+> **Check this section against your own recollection before submitting.** The frequency ratings
+> and the reflection describe your experience.
 
-### Tool used
+### 6.1 Tools used
 
-**Claude (Anthropic), via Claude Code**, used throughout the project.
+| Tool | Tier | Primary purpose | Frequency |
+|---|---|---|---|
+| Claude (Anthropic), via Claude Code | _[free / paid / institutional / GitHub Education / API — fill in]_ | Specification analysis, design and pattern selection, C++ implementation, test harnesses, debugging, UML, report drafting | Frequently |
 
-### Extent of use — heavy
+_Add rows for any other tools used by any member._
 
-AI assistance was **extensive**. It is disclosed in full here, on the understanding that thorough
-disclosure of heavy use is graded the same as thorough disclosure of light use, and that failure
-to disclose is an academic offence.
+### 6.2 Categorised usage log
 
-The AI was used for:
+| Category | Used? | Concrete steps |
+|---|---|---|
+| **Conceptual learning** | **Yes** | Had the course chapters in `resources/` read and summarised *before* each pattern was implemented — Chapter 17 on MVC's arrangement, Chapter 16 on the State Context, Chapter 20 on the Command interface, Chapter 12 on Simple Factory vs Factory Method, Chapter 8 on UML notation. |
+| **Brainstorming design alternatives** | **Yes** | Compared the alternatives recorded in §3 — Template Method vs a `switch` on district kind vs Strategy; State classes vs an enum with conditionals; Command objects vs a `map` of handlers. Also debated whether the district factory could honestly be called Factory Method, and whether card effects needed to be objects. |
+| **Code generation** | **Yes** | Substantially all of the submitted C++ was AI-written — Makefile, board data table, district hierarchy, command interpreter, save/load, auctions, insolvency, upgrades and trading. |
+| **Debugging assistance** | **Yes** | Used to reproduce and fix the defects in §5. Typical interaction: describe a suspected fault, have a scripted scenario built to confirm or refute it, then have the fix written and the regression re-run. |
+| **Code review or critique** | **Yes** | Asked for a review of the whole project "from a grading point of view", which produced the list of remaining gaps; and asked repeatedly to predict what could go wrong at each stage and test against those predictions. |
+| **Writing or editing the report itself** | **Yes** | Sections 1–7 were AI-drafted from the work done. **Section 8 was not** — the requirements prohibit it. |
 
-- **Reading and interpreting the specification.** Extracting the board layout, Table 1, the save
-  format and the command list from the PDFs, and identifying the two internal contradictions
-  described in §5.1.
-- **Reading the course chapters** in `resources/` before each pattern was implemented, and
-  matching the implementation to each chapter's conventions (for example Chapter 17's
-  View-owns-Controller arrangement, and Chapter 16's Context-owns-all-states structure).
-- **Architecture and pattern selection**, including the decision *not* to claim Factory Method,
-  not to use Decorator, and to omit `undo()` from `Command`.
-- **Writing the C++ source.** Substantially all of the submitted code was AI-written.
-- **Writing the test harnesses** (three suites, 78 checks) and the save-file fixtures.
-- **Diagnosing and fixing defects**, including all of §5.
-- **Producing the UML diagrams** and drafting this report.
+### 6.3 Transcripts
 
-### My own contribution
+Full conversation transcripts are exported as PDFs, compressed into a single ZIP, and uploaded to
+the Phase 1 report Dropbox on LEARN, as required.
 
-- Set the project conventions the work had to follow, including the rule that **every design
-  pattern used must appear in the course `resources/` chapters** and must follow that chapter's
-  conventions — which directly shaped the architecture.
-- Directed scope at each stage: which spec priorities to implement in which order, and what to
-  leave out.
-- Made design calls put to me, including labelling the district factory honestly as Simple
-  Factory rather than claiming Factory Method.
-- **Reviewed the implementation and independently identified five defects**, which the AI then
-  confirmed and fixed: the stranded Lockup fine (§5.6), the negative-Reagent mortgage transfer
-  (§5.7), load accepting unowned-but-mortgaged or upgraded districts (§5.9), the command-line
-  parsing deviating from the fixed contract, and `roll 1 2` outside `-testing` silently becoming
-  a random roll (§5.10).
-- Built and ran the program **on the UW student server**, and found the auction prompt problem
-  (§5.12) through live play.
-- Directed a full review of the project from a grading perspective, which produced the remaining
-  work list.
+### 6.4 Reflection
 
-### Verification
+> _Drafted from what happened — rewrite in your own voice and correct anything that does not match
+> your experience._
 
-Correctness was not taken on trust. Every rule was checked by running the program:
+AI assistance was most valuable in two places. The first was reading the course chapters before
+each pattern was written rather than after. Chapter 17's MVC is not the arrangement most people
+assume — the View owns the Controller and queries the Model directly — and writing the code first
+would have produced a plausible-looking MVC that a reviewer following the chapter would mark down.
+The second was building test scenarios: several rules here cannot be checked by playing, and having
+harnesses written quickly made a statistical check of the probability tables practical.
 
-- three test suites — 34 board/movement checks, 23 save-format checks, 21 card/deck checks;
-- the save round-trip is verified **byte-identical**, and nine malformed save files are each
-  verified to be rejected with a specific message;
-- the two probability tables are checked against the spec by drawing 200,000 outcomes and
-  comparing observed frequencies, because a mistyped weight is invisible in play;
-- the build is warning-free under `-Wall -Wextra`, and compiles and runs on the student server.
+The advice was not always right. The plan asserted that a shuffled Enchantment deck would need
+Command objects, one class per card. Building it showed the seam between the two implementations
+was a single function returning an `int`, so the deck is a container of values and a class per card
+would have bought nothing; Design Question 2 now says so, grounded in code rather than prediction.
+Earlier, it produced a UML diagram whose class boxes had empty attribute and operation compartments
+and defended that as an "abstraction level" — it was simply an unfinished diagram, and only became
+a defensible choice once the rendering was fixed.
 
-### Statement
-
-I understand that I must be able to explain any part of the submitted code at the demo, and that
-a discrepancy between what I can explain and what was submitted will be referred under Policy 71.
+I also overrode it directly. Reviewing the implementation, I found five defects it had introduced
+and reported them: a Lockup fine that stranded a player after they raised funds, a mortgaged
+district transfer that drove Reagents negative, a save loader that accepted unowned-but-mortgaged
+districts, command-line parsing that deviated from the fixed contract, and `roll 1 2` outside
+`-testing` silently becoming a random roll. Each was real; each was then fixed and regression
+tested.
 
 ---
 
 ## 7. Extra Features Implemented
 
-**Shuffled Enchantment Deck** (`./arcanemarket -deck`).
+### Shuffled Enchantment Deck
 
-The spec defines the Enchantment squares as a probability table and lists a real deck as an
-enhancement. Both are implemented and selected at startup, so the same binary plays with or
-without it and no recompilation is needed, as the spec requires of an enhancement.
+**Feature name and description.** The spec defines the Enchantment squares as a probability table
+and lists a real deck as an enhancement. With the enhancement enabled, effects are drawn from a
+genuine deck of eighteen cards — one per Table 3 weight unit — dealt one at a time and reshuffled
+only when exhausted. A player interacts with it exactly as with the base game, by landing on an
+Enchantment Deck square; the difference is that the odds shift as cards are consumed, so a full
+pass deals Table 3 exactly and counting cards becomes a real strategy.
 
-The deck holds eighteen cards — one per Table 3 weight unit — dealt from the front and reshuffled
-on exhaustion. Design Question 2 above explains why this is a genuinely different mechanic rather
-than a reskin of the table, and the test suite verifies the defining property: **100 consecutive
-passes each deal exactly Table 3**, and a drawn card leaves the deck.
+**Design — how it integrates with the existing class structure.** `CardDeck` (`cards.h`/`.cpp`)
+holds the shuffled `vector<int>` and exposes `draw()`, refilling and reshuffling when spent. `Game`
+holds a `unique_ptr<CardDeck>` that is null unless the enhancement is on, and both implementations
+meet behind one seam, `Game::drawEnchantmentValue()`. `EnchantmentDeck::landOn` calls that seam and
+is identical either way, so no district code knows which mode is active. The choice is made at
+startup, satisfying the requirement that the game plays with and without enhancements without
+recompiling.
+
+**How to trigger it during the demo.**
+
+```
+./arcanemarket -deck                            # new game, deck enabled
+./arcanemarket -load save.txt -testing -deck    # loaded game, deterministic dice, deck enabled
+```
+
+On startup the program prints `Enchantment effects come from a shuffled deck of 18 cards`,
+confirming the mode is active. Then land any Artificer on an Enchantment Deck square — squares 7,
+19, 26 or 32; with `-testing`, for example `roll 0 7` from Grand Entrance. Running the same
+scenario **without** `-deck` uses the spec's probability table instead, demonstrating that both
+modes work from the same binary.
 
 ---
 
 ## 8. Lessons Learned
 
-**Reading the chapter first changes the design, not just the vocabulary.** Chapter 17's MVC is
-not the arrangement most people assume — the View owns the Controller and queries the Model
-directly. Had the code been written first and the chapter consulted afterwards, the result would
-have been a plausible-looking MVC that a reviewer following the chapter would mark down. The same
-happened with Chapter 16, where the Context owns *all* states up front rather than allocating on
-transition.
-
-**A pattern that is not reachable is not implemented.** `AwaitingTradeResponseState` was written,
-then deleted, because trading did not exist yet — the compiler flagged its unused `Turn&` member.
-It went back in when `trade` landed and it had real behaviour. The same discipline produced the
-decision to name the district factory Simple Factory and to omit `undo()` from `Command`. Claiming
-fewer patterns accurately is worth more than claiming more loosely, because Phase 2 review
-classifies each claim as actually realized, partially realized, or merely named.
-
-**Predictions about design are worth less than the act of building it.** The plan asserted that a
-real card deck would need Command objects. Building it showed the seam was a single function
-returning an `int`. The Design Question 2 answer is now grounded in code rather than in a guess.
-
-**Test what play cannot reveal.** The two probability tables are the one part of the project where
-a wrong number produces plausible output forever. Compile-time sum checks plus 200,000-draw
-frequency comparisons catch a transposed digit; no amount of playing reliably would.
-
-**Bugs cluster where a rule spans two pieces of code.** Almost every defect in §5 lived in a gap
-rather than inside a function: movement direction versus bonus eligibility, the save format versus
-the insolvency flag, the Lockup fine versus the debt system, the owner field versus the upgrade
-field. Testing individual functions would have missed all of them; the tests that found them
-exercised a rule end to end.
-
-**A fix that only treats the symptom hides the real defect.** The renderer's `length_error` looked
-like an arithmetic bug; the actual fault was that nothing enforced the 2–6 player cap. The
-negative-Reagent transfer looked like a missing check; chasing it properly exposed a debt system
-that could silently forgive obligations. Both times, asking "why was this state reachable at all"
-found something larger than the reported symptom.
+> **This section must be written by you, without AI tools.** The requirements state so explicitly
+> and in bold, so it has deliberately been left blank.
+>
+> The requirements suggest addressing at least the following. You need not answer every one — pick
+> those you have something real to say about.
+>
+> - Which parts of the project did you use AI for, and which did you deliberately *not* use it
+>   for, and why?
+> - Was there a moment AI gave you something that looked good at first but turned out to be wrong,
+>   generic, or broken once you dug in? What tipped you off?
+> - Did AI ever push your design in a direction you wouldn't have chosen on your own, for better
+>   or worse?
+> - When AI suggested something, how did you decide whether to use it as-is, modify it, or reject
+>   it? Can you give a specific example?
+> - If a teammate or instructor asked "why did you make this design choice?", would you be able to
+>   answer for every AI-assisted part of the game?
+> - Is there a skill you think you didn't build because AI did that part for you? Does that matter
+>   to you?
+> - Is there something you understand better because you used AI — because it explained a concept,
+>   or because its first attempt was wrong and figuring out why taught you something?
+> - If you had to redo this project with no AI access at all, what would you do differently, and
+>   what would simply not get done?
+> - Did using AI change how much you iterated?
+> - What parts of using LLMs for coding could be improved to make them more helpful? What
+>   challenges did you encounter, or features do you wish these tools had?
