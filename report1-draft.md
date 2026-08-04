@@ -92,10 +92,14 @@ pointers are drawn as lines.
 Patterns are a vocabulary, not a checklist: the goal is not to use as many as possible, which
 produces overengineered code, but to recognise a recurring structural problem and apply the proven
 solution. The course's standard is that **a pattern is justified when you see the second
-occurrence of a problem; the first occurrence is just code.** Six patterns are applied below, each
-given as pattern name, where it is used, why it was chosen (with the alternatives rejected), and
-how it is implemented. Two are held to that standard and found wanting; §3.7 says so rather than
-claiming them.
+occurrence of a problem; the first occurrence is just code.**
+
+Four patterns are applied independently — Template Method, State, Command and the Simple Factory
+idiom — plus one architectural **compound**, MVC, whose own constituents (Observer and Strategy)
+are reported inside it rather than counted separately. Each entry gives the pattern name, where it
+is used, why it was chosen with the alternatives rejected, and how it is implemented. §3.6 covers
+a separation that is deliberately *not* given a pattern name, and §3.7 the patterns rejected
+outright.
 
 Throughout, the two metrics used to judge a decision are **coupling** — the degree of
 interdependence between modules, which the design should push down the ladder from content
@@ -103,20 +107,26 @@ towards data coupling — and **cohesion**, the degree to which the elements ins
 together, where functional cohesion is the ideal and a "god class" of vaguely related code is the
 failure mode.
 
-### 3.1 Model-View-Controller
+### 3.1 Model-View-Controller, with Observer and Strategy
 
 *Architectural compound pattern. Core problem: separate model, view, and controller concerns.
 Primary principles: SRP, OCP.*
 
+Chapter 17 defines MVC as a compound: Observer links the Model to the View, and Strategy links the
+View to its Controller. Both appear in this program **only** as parts of that compound — `Subject`
+has exactly one observer and `ControllerInterface` exactly one implementation — so they are
+reported here as constituents rather than claimed as two further patterns. Counting them
+separately would inflate the tally without adding a second, independent justification.
+
 **Where it is used.** `Game` is the Model (`game.h`/`.cpp`); `TextView` is the View
 (`textview.h`/`.cpp`); `ControllerInterface` and `GameController` are the Controller
-(`controller.h`/`.cpp`). See Figure 2.
+(`controller.h`/`.cpp`); `Subject` and `Observer` are in `observer.h`. See Figure 2.
 
 **Why it was chosen.** Not because a graphical display might be added later — that would be
 premature abstraction, which is as harmful as premature optimization, and the enhancement was
-never built. The justification is the Single Responsibility Principle: MVC separates display
-logic from business logic from user input, and this program already contains all three as
-distinct **axes of variation**:
+never built. The justification is the Single Responsibility Principle: MVC separates display logic
+from business logic from user input, and this program already contains all three as distinct
+**axes of variation**:
 
 1. **Rendering** — `textview.cpp` is 200 lines of grid geometry, cell-width arithmetic, name
    wrapping and token placement. It changes when the display changes.
@@ -125,11 +135,11 @@ distinct **axes of variation**:
 3. **Rules** — tolls, auctions, insolvency. It changes when the game rules change.
 
 Collapsing them gives one class with three reasons to change, which is the definition of an SRP
-violation and produces exactly the low cohesion the course calls a god class. Kept apart, each
-has **functional cohesion**: every element contributes to one well-defined task. That the split
-is real and not nominal is demonstrated rather than asserted — the test harness
-(`tests/gametest.cpp`, run with `make test`) constructs a `Game` over string streams, drives it
-and asserts on its state with no view attached at all, 56 checks running headless.
+violation and produces exactly the low cohesion the course calls a god class. Kept apart, each has
+**functional cohesion**: every element contributes to one well-defined task. That the split is
+real and not nominal is demonstrated rather than asserted — `tests/gametest.cpp`, run with
+`make test`, constructs a `Game` over string streams, drives it and asserts on its state with no
+view attached at all, 56 checks running headless.
 
 *Alternatives rejected:* **one class holding rules and rendering** — three reasons to change,
 god-class cohesion, and headless testing impossible; **Model and View with no Controller** —
@@ -138,12 +148,45 @@ rendering code; **Controller mediating all data**, with the View asking the Cont
 Chapter 17 states this "is not MVC", and it adds a hop that raises coupling without raising
 cohesion, since the View can query the Model directly.
 
-**How it is implemented.** `Game` holds all state, extends `Subject`, and names no View.
-`TextView` holds a `Game&` and a `shared_ptr<ControllerInterface>`, registers as an Observer, and
-on notification re-queries the Model and redraws. Input reaches `TextView::handleInput`, which
-forwards to the Controller; `GameController` mutates the Model, then fires one notification for
-the whole command. This is the standard composition the course names: *the Model is an observable
-subject; the View subscribes as an observer; the Controller mediates.*
+**How it is implemented.** `Game` holds all state and names no View. `TextView` holds a `Game&`
+and a `shared_ptr<ControllerInterface>`, and on notification re-queries the Model and redraws.
+Input reaches `TextView::handleInput`, which forwards to the Controller; `GameController` mutates
+the Model, then signals once for the whole command. This is the composition the course names: *the
+Model is an observable subject; the View subscribes as an observer; the Controller mediates.*
+
+#### Observer, the Model→View link
+
+*Behavioural. Core problem: one-to-many notification without tight coupling.*
+
+`Subject` keeps a `vector<Observer*>` of non-owning pointers with `addObserver`
+(duplicate-checked via `std::find`), `removeObserver` (erase-remove) and `notifyObservers`.
+`Game` extends `Subject`; `TextView` extends `Observer`, registering in its constructor and
+deregistering in its destructor — RAII applied to a registration rather than to memory.
+Notification fires once per command rather than once per mutator, because the spec's unit of
+redraw is the command: one command may move an Artificer, pay a toll, transfer a district and
+change the turn phase, and the board is drawn once for all of it.
+
+**Where this claim is weak, stated plainly.** Observer's core problem is *one-to-many*
+notification, and this program is one-to-one: a single observer, and one call site where
+`notifyObservers()` iterates a one-element vector. By the second-occurrence rule this is the first
+occurrence, and replacing it with a direct `view.render()` from the command loop would be
+behaviourally identical and shorter. Observer is retained not because the notification needs it,
+but because it is the mechanism by which the course *defines* MVC's Model→View link — the pattern
+earns its place through the compound it belongs to, and removing it would leave an MVC that no
+longer matches Chapter 17's own description. A reviewer who judged it over-built on its own terms
+would be right on the principle.
+
+#### Strategy, the View→Controller link
+
+*Behavioural. Core problem: the algorithm varies independently of the class that uses it.*
+
+`TextView` holds its Controller as a `shared_ptr<ControllerInterface>` and delegates every user
+event to it, which is the shape Chapter 17 describes. It is reported as **structural only**:
+unlike Observer, no machinery implements it — there is no Strategy class, only the abstract
+interface and the single `GameController`. With exactly one implementation nothing demonstrates
+swappability, and YAGNI names that case directly: a Strategy hierarchy for a problem with exactly
+one strategy adds complexity without adding value. A second controller is also unlikely to earn
+its place later, since mode-specific command legality is State's responsibility here.
 
 **Where the Model's dependency on I/O stops.** `Game` and `TextView` take their `std::istream&`
 and `std::ostream&` by constructor injection, so neither names a console: `main` is the only file
@@ -158,47 +201,7 @@ mid-turn dialogues bypass the command pipeline. A graphical View would receive t
 to decide what to do with it. This is the weakest point of the separation and the fair thing to be
 challenged on at the demo.
 
-### 3.2 Observer
-
-*Behavioural. Core problem: one-to-many notification without tight coupling. Primary principles:
-OCP, SRP.*
-
-**Where it is used.** `Subject` and `Observer` in `observer.h`; `Game : Subject`;
-`TextView : Observer`. See Figure 2.
-
-**Why it was chosen — and why that choice is contestable.** The core problem Observer solves is
-*one-to-many* notification. This program has **one-to-one**: exactly one Observer, one Subject,
-and a single call site in `GameController::handleCommand` where `notifyObservers()` iterates a
-one-element vector. Measured against the course's own rule — a pattern is justified at the second
-occurrence of a problem, the first is just code — this is the first occurrence, and a direct
-`view.render()` call at that same site would be behaviourally identical and simpler. YAGNI names
-this failure mode precisely: an interface with unused implementations adds complexity without
-adding value. A reviewer applying that strictly would call it over-built and would be right on
-the principle.
-
-What is offered against that is narrower, and is optionality rather than present value:
-
-- Observer is the pattern that replaces direct method calls with event notification, moving the
-  Model→View link down the coupling ladder. Because `Game` names no View, adding a second display
-  is an OCP extension — a new subclass of `Observer` — rather than a modification of tested Model
-  code, and the specification's own enhancement list names a graphical display, so this is a
-  documented extension point rather than an invented one.
-- The cost is 45 lines in `observer.h`, one virtual call per command, and no allocation.
-
-*Alternatives rejected:* **`Game` holding a `TextView*` and calling `render()` directly** — the
-honest competitor; its only real defect is that a high-level module (the Model) would then depend
-on a low-level concrete detail, inverting DIP; **the main loop polling `view.render()`
-unconditionally** — workable, but it moves the redraw decision outside both Model and Controller.
-
-**How it is implemented.** `Subject` keeps a `vector<Observer*>` of non-owning pointers with
-`addObserver` (duplicate-checked via `std::find`), `removeObserver` (erase-remove) and
-`notifyObservers`. `TextView` registers in its constructor and deregisters in its destructor —
-RAII applied to a registration rather than to memory. Notification fires once per command rather
-than once per mutator, because the spec's unit of redraw is the command: a single command may move
-an Artificer, pay a toll, transfer a district and change the turn phase, and the board is drawn
-once for all of it.
-
-### 3.3 Template Method
+### 3.2 Template Method
 
 *Behavioural. Core problem: define the skeleton of an algorithm; let subclasses fill in steps.
 Primary principles: OCP, DRY.*
@@ -228,7 +231,7 @@ by upgrade level, doubling an unimproved toll when the Guild is complete; `Forge
 table by Forges owned; `Depot` multiplies the dice total by 4, or 10 when one Artificer holds
 both.
 
-### 3.4 State
+### 3.3 State
 
 *Behavioural. Core problem: an object changes behaviour when its internal state changes. Primary
 principles: OCP, SRP.*
@@ -256,7 +259,7 @@ also records `resume_`, the phase a trade offer interrupted, because an offer ma
 changes which code runs — and differ in intent: here the transitions are internal to the object,
 not selected by a client.
 
-### 3.5 Command
+### 3.4 Command
 
 *Behavioural. Core problem: encapsulate a request as an object so it can be stored, queued,
 logged, and undone. Primary principles: OCP, SRP.*
@@ -286,7 +289,7 @@ absent: the pattern's canonical form supports undo, but the spec requires none, 
 operation that all thirteen commands would stub out is exactly the unused interface surface that
 YAGNI and ISP both warn against.
 
-### 3.6 Simple Factory
+### 3.5 Simple Factory
 
 *Creational idiom, not the GoF Factory Method. Primary principle: DIP.*
 
@@ -310,20 +313,7 @@ the usual sense: it exists precisely so that it is the *only* place concrete nam
 is the acknowledged cost of the idiom. It is named the Simple Factory idiom rather than Factory
 Method because there is no creator hierarchy — the structural difference between the two.
 
-### 3.7 Patterns considered and deliberately not used
-
-- **Decorator** — core problem: add responsibilities to objects dynamically without subclassing.
-  Rejected for upgrades; the reasoning is Design Question 3.
-- **Iterator** — core problem: sequential access without exposing internal structure. The board is
-  a `vector` indexed directly by square number and movement is arithmetic modulo 40, so there is
-  no internal structure to hide and no traversal to abstract.
-- **Strategy** as a separate claim — Chapter 17 describes the Controller as the View's Strategy,
-  and `TextView` does hold a `shared_ptr<ControllerInterface>`. But there is exactly one concrete
-  controller, and YAGNI names this case explicitly: a Strategy hierarchy for a problem that has
-  exactly one strategy adds complexity without adding value. It is reported as part of MVC's
-  compound structure rather than claimed as a pattern in its own right.
-
-### 3.8 A separation that is deliberately not a pattern
+### 3.6 A separation that is deliberately not a pattern
 
 `Auction` (`auction.h`/`.cpp`) runs the bidding when a purchase is declined or Treasury insolvency
 releases districts. It is a separate class from `Game`, and it is worth reporting here *because*
@@ -342,6 +332,14 @@ name-dropping the course warns against, since there is exactly one auction proce
 occurrence to generalise from. An ordinary class with a clear responsibility is the right answer.
 
 ---
+
+### 3.7 Patterns considered and deliberately not used
+
+- **Decorator** — core problem: add responsibilities to objects dynamically without subclassing.
+  Rejected for upgrades; the reasoning is Design Question 3.
+- **Iterator** — core problem: sequential access without exposing internal structure. The board is
+  a `vector` indexed directly by square number and movement is arithmetic modulo 40, so there is
+  no internal structure to hide and no traversal to abstract.
 
 ## 4. Answers to Design Questions
 
@@ -569,7 +567,7 @@ time, with the full test suite re-run after each.
    contains none. This also unblocked the headless suite, which needs to capture Model output
    rather than ignore it.
 2. **SRP — the auction became its own class.** `Auction` owns the bidding dialogue and `Game`
-   keeps the rules, so each has one reason to change. See §3.8.
+   keeps the rules, so each has one reason to change. See §3.6.
 3. **OCP and DRY — type dispatch left the sweeps.** `Board` classifies its districts once at
    construction into a circuit-ordered registry, and every ownership sweep — total worth,
    transfers, insolvency, save/load, assets — iterates `board.ownables()`. Two new virtual hooks,
