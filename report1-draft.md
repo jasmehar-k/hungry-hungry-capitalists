@@ -328,8 +328,8 @@ Method because there is no creator hierarchy — the structural difference betwe
 Yes — with a caveat the course's own standard forces me to state. **The Subject is `Game`**, the
 Model owning the board, the players and the turn; **the Observer is `TextView`**. Districts are
 deliberately *not* Subjects: the spec redraws the **entire** board after every command, so
-per-district notification would give forty objects an observer list in order to trigger the same
-full redraw — cost without cohesion gained.
+per-district notification would give forty objects an observer list to trigger the same full
+redraw.
 
 **The triggering event is the completion of a command**, not an individual field write. This
 departs from Chapter 17, which notifies at the end of every mutating method. One command can move
@@ -337,12 +337,11 @@ an Artificer, pay a toll, transfer a district and change the turn phase; notifyi
 redrew the board four times for one command and printed six boards during six-player setup.
 Notification therefore fires once, from `GameController::handleCommand`.
 
-**Whether direct method calls are better suited** is genuinely arguable here. Observer's core
-problem is *one-to-many* notification without tight coupling; this program has **one-to-one** —
-one Observer, one Subject, one call site iterating a one-element vector. A pattern is justified at
-the second occurrence of a problem, and this is the first, so a direct `view.render()` would be
-behaviourally identical and simpler. Claiming otherwise would be premature abstraction, which is
-as harmful as premature optimization.
+**Whether direct method calls are better suited** is genuinely arguable. Observer's core problem
+is *one-to-many* notification without tight coupling; this program has **one-to-one** — one
+Observer, one Subject, one call site iterating a one-element vector. A pattern is justified at the
+second occurrence of a problem, and this is the first, so a direct `view.render()` would be
+behaviourally identical and simpler.
 
 What Observer does buy is that the Model names no View, so a second display would be an OCP
 extension rather than a modification of tested code — optionality against an enhancement the spec
