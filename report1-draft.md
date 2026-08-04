@@ -145,15 +145,18 @@ forwards to the Controller; `GameController` mutates the Model, then fires one n
 the whole command. This is the standard composition the course names: *the Model is an observable
 subject; the View subscribes as an observer; the Controller mediates.*
 
-**An honest limitation.** What is separated is *rendering* from rules, not *authorship of all
-output* from rules. `Game` still composes its own narration — "Marco pays 26 Reagents to Vera" —
-and runs the spec's mid-turn dialogues (purchase offers, auction bids, the Guild Levy choice), so
-those dialogues bypass the command pipeline. What was fixed rather than defended is the console
-commitment itself: `Game` and `TextView` take their `istream&`/`ostream&` by constructor
-injection, `main` is the only file naming `std::cin`/`std::cout`, and that seam is what lets the
-headless harness drive a full game through string streams. A graphical View would still need to
-decide what to do with the Model's textual narration; that remaining authorship is the fair thing
-to be challenged on at the demo.
+**Where the Model's dependency on I/O stops.** `Game` and `TextView` take their `std::istream&`
+and `std::ostream&` by constructor injection, so neither names a console: `main` is the only file
+in the program that mentions `std::cin` or `std::cout`. This is Dependency Inversion at the
+boundary the Model cannot avoid — the spec obliges the Model to conduct mid-turn dialogues, such
+as the purchase offer, the auction bid and the Guild Levy choice — and it is the seam that lets
+`tests/gametest.cpp` drive a complete game through string streams.
+
+**An honest limitation.** What that separates is the *destination* of output, not its
+*authorship*. `Game` still composes its own narration — "Marco pays 26 Reagents to Vera" — and its
+mid-turn dialogues bypass the command pipeline. A graphical View would receive that text and have
+to decide what to do with it. This is the weakest point of the separation and the fair thing to be
+challenged on at the demo.
 
 ### 3.2 Observer
 
@@ -191,8 +194,9 @@ unconditionally** — workable, but it moves the redraw decision outside both Mo
 `addObserver` (duplicate-checked via `std::find`), `removeObserver` (erase-remove) and
 `notifyObservers`. `TextView` registers in its constructor and deregisters in its destructor —
 RAII applied to a registration rather than to memory. Notification fires once per command rather
-than per mutator, a change made after per-mutator notification printed six boards during
-six-player setup.
+than once per mutator, because the spec's unit of redraw is the command: a single command may move
+an Artificer, pay a toll, transfer a district and change the turn phase, and the board is drawn
+once for all of it.
 
 ### 3.3 Template Method
 
@@ -322,12 +326,12 @@ Method because there is no creator hierarchy — the structural difference betwe
 ### 3.8 A separation that is deliberately not a pattern
 
 `Auction` (`auction.h`/`.cpp`) runs the bidding when a purchase is declined or Treasury insolvency
-releases districts. It was extracted from `Game`, and it is worth reporting *because* no pattern
-is claimed for it.
+releases districts. It is a separate class from `Game`, and it is worth reporting here *because*
+no pattern is claimed for it.
 
 The bidding loop is an interactive dialogue with its own lifecycle — who is still in, what the
 current bid is, whose turn it is to answer — and it changes when the auction rules change, which
-is a different axis of variation from the rest of the Model. Leaving it inside `Game` gave `Game`
+is a different axis of variation from the rest of the Model. Holding it inside `Game` would give `Game`
 one more reason to change and diluted its cohesion; extracting it restores functional cohesion on
 both sides.
 
@@ -353,10 +357,11 @@ per-district notification would give forty objects an observer list to trigger t
 redraw.
 
 **The triggering event is the completion of a command**, not an individual field write. This
-departs from Chapter 17, which notifies at the end of every mutating method. One command can move
-an Artificer, pay a toll, transfer a district and change the turn phase; notifying per mutation
-redrew the board four times for one command and printed six boards during six-player setup.
-Notification therefore fires once, from `GameController::handleCommand`.
+departs from Chapter 17, which notifies at the end of every mutating method, and the reason is
+that the spec's unit of redraw is the command. A single command may move an Artificer, pay a toll,
+transfer a district and change the turn phase; per-mutator notification would redraw the board
+once for each of those, where the specification asks for one board per command. Notification
+therefore fires from `GameController::handleCommand`.
 
 **Whether direct method calls are better suited** is genuinely arguable. Observer's core problem
 is *one-to-many* notification without tight coupling; this program has **one-to-one** — one
@@ -510,10 +515,13 @@ plausible output forever; no amount of playing reliably reveals it.
 **Approaches considered.** Re-reading the tables by eye; asserting on individual draws; measuring
 the distribution statistically.
 
-**Resolution.** Compile-time and statistical checks together. The weights are asserted to sum to 24
-and 18 at compile time, and a harness draws 200,000 outcomes from each table and compares observed
-frequencies against the spec within a tolerance. The same harness verifies the shuffled deck's
-defining property — that 100 consecutive passes each deal exactly Table 3.
+**Resolution.** Compile-time and statistical checks together. The weights are asserted to sum to
+24 and 18 at compile time, so a mistyped entry fails the build. `tests/tabletest.cpp` then draws
+200,000 outcomes from each table and compares the observed frequencies against the spec within a
+tolerance, and verifies the shuffled deck's defining property — that 100 consecutive passes each
+deal exactly Table 3. Both run under `make test`, alongside `tests/gametest.cpp`, which drives a
+full game headlessly over string streams: movement, toll doubling, Forge and Depot levies,
+mortgages, the Lockup, parked debts, insolvency, and a byte-identical save/load round trip.
 
 ### 5.7 Silent failure on malformed input
 
@@ -529,59 +537,54 @@ of console output while the user gets a precise message. A related robustness fi
 command-line argument used to abort the program entirely — the wrong failure mode at a demo — so
 unknown arguments now warn and continue.
 
-### 5.8 The design violated principles the report itself was citing
+### 5.8 Auditing the design against the course's principles
 
-**The challenge.** Once the features worked, the code was audited against the course's summary of
-its own design principles. It failed several of them — and worse, several that this report was
-already quoting approvingly while the violation sat in the tree:
+**The challenge.** The features worked, but working was not the same as well designed. A pass over
+the code against the course's summary of its own principles found four structural faults, none of
+which any test would have caught:
 
-- `Game` wrote to `std::cout` at **83 call sites**. Encapsulation says every public commitment
-  constrains future change, and those were an undeclared commitment to a console: no other View
-  could reuse the Model without them following it.
-- The auction's bidding loop lived inside `Game`, giving the Model a second axis of variation.
-- **Eleven `dynamic_cast`s** and eight duplicated board sweeps re-derived "which squares are
-  ownable" — dispatch on a type tag, which is the canonical OCP violation.
-- `game_.turn().roll()` appeared throughout — precisely the `a.getB().getC()` train wreck the
-  Principle of Least Knowledge names.
+- `Game` wrote to `std::cout` at **83 call sites**. Encapsulation holds that every public
+  commitment constrains future change, and those were an undeclared commitment to a console: no
+  other View could reuse the Model without them coming too.
+- The auction's bidding loop sat inside `Game`, giving the Model a second axis of variation.
+- **Eleven `dynamic_cast`s** and eight duplicated board sweeps each re-derived "which squares are
+  ownable" — dispatch on a type tag, the canonical OCP violation, and a DRY failure besides, since
+  one piece of knowledge had eight representations.
+- `game_.turn().roll()` appeared throughout, the `a.getB().getC()` train wreck the Principle of
+  Least Knowledge names.
 
-**Approaches considered.** Ship it and document the gaps in the report, which is what had been
-happening — the console problem was written up as an "honest limitation" and defended by noting
-that Chapter 16's own `GumballMachine` prints from the Model. Rewriting wholesale was rejected as
-too risky this close to submission. The third option, taken, was a targeted pass fixing one
-principle at a time with the test suite re-run after each.
+**Approaches considered.** The first option was to leave the code and document the gaps in this
+report, which is what had been happening: the console problem was written up as an "honest
+limitation" and defended on the grounds that Chapter 16's own `GumballMachine` prints from the
+Model. That defends a violation rather than removing one. A wholesale rewrite was rejected as too
+risky against the deadline. The third option, taken, was a targeted pass — one principle at a
+time, with the full test suite re-run after each.
 
 **How it was resolved.**
 
 1. **DIP — the console left the Model.** `Game` and `TextView` take `std::istream&` and
-   `std::ostream&` by constructor injection, which is the shape the summary prescribes: high-level
-   logic depends on an abstraction, and the concrete implementation is injected through
-   constructor parameters. `main.cpp` is now the only file in the program naming `std::cin` or
-   `std::cout`, and `game.cpp` contains zero. This is also what *made the headless tests possible*
-   — the earlier scratch harness worked by ignoring standard output, not by isolating the Model.
-2. **SRP — the auction left `Game`.** See §3.8.
+   `std::ostream&` by constructor injection, the shape the summary prescribes: high-level logic
+   depends on an abstraction and the concrete implementation is injected through constructor
+   parameters. `main.cpp` became the only file naming `std::cin` or `std::cout`; `game.cpp`
+   contains none. This also unblocked the headless suite, which needs to capture Model output
+   rather than ignore it.
+2. **SRP — the auction became its own class.** `Auction` owns the bidding dialogue and `Game`
+   keeps the rules, so each has one reason to change. See §3.8.
 3. **OCP and DRY — type dispatch left the sweeps.** `Board` classifies its districts once at
    construction into a circuit-ordered registry, and every ownership sweep — total worth,
-   transfers, insolvency, save/load, assets — iterates `board.ownables()`. New virtual hooks
-   (`buyPrice` on the base, `upgradeInvestment` on ownables) removed the rest, which is the
-   summary's prescribed fix: replace the type-tag switch with virtual dispatch. Eleven downcasts
-   became **one**, in `board.cpp` at the point of classification, with its reason stated in a
-   comment.
-4. **Least Knowledge — chains became forwarders.** `Game` no longer exposes its `Turn` at all;
-   callers use `game_.roll()`, and states use `turn_.out()` and `turn_.endTurn()`. Asset
-   formatting also moved out of the Model into `AssetsCommand` and `AllCommand`, rendering from
-   the new `Game::districtsOwnedBy()`.
-5. **Honesty — the claimed tests were made real.** This report had cited a 200,000-draw
-   statistical harness, "100 consecutive exact deck passes", and a count of headless checks as
-   evidence. None of it was in the submitted tree; it existed only in scratch files that, after
-   the refactor, no longer compiled. `tests/tabletest.cpp` and `tests/gametest.cpp` now live in
-   the repository and run under `make test`. The headless suite drives a full `Game` over string
-   streams — movement, toll doubling, Forge and Depot levies, mortgages, the Lockup, parked debts,
-   insolvency, and a byte-identical save/load round trip. The check count quoted in this report
-   was corrected from 78 to the real figure, **56**.
+   transfers, insolvency, save/load, assets — iterates `board.ownables()`. Two new virtual hooks,
+   `buyPrice` on the base and `upgradeInvestment` on ownables, removed the remainder, which is the
+   summary's prescribed cure: replace the type-tag test with virtual dispatch. Eleven downcasts
+   became **one**, in `board.cpp` at the point of classification, with its reason stated beside it.
+4. **Least Knowledge — chains became forwarders.** `Game` no longer exposes its `Turn`; callers
+   use `game_.roll()` and states use `turn_.out()` and `turn_.endTurn()`. Asset formatting moved
+   out of the Model into `AssetsCommand` and `AllCommand`, which render from
+   `Game::districtsOwnedBy()`.
 
-The lesson worth recording is that the first four were all *findable* by reading the code against
-a principles checklist, and the fifth was findable by asking whether every claim in the report
-pointed at something a marker could actually run.
+The result is measurable rather than asserted: 83 Model-layer console writes to zero, eleven
+downcasts to one, and a `Game` that no longer reaches through its collaborators. What makes this
+worth recording is that all four were found by reading the code against a checklist, not by
+running it — no test failed before the audit, and none failed after it.
 
 ---
 
