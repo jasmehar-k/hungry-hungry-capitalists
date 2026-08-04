@@ -1,21 +1,26 @@
 # ArcaneMarket — UML class diagrams
 
-Reflects the final submitted code. Rendered images in `diagrams/`.
+Reflects the final submitted code.
 
 ## How these are organised
 
-**Figure 1 is a master class diagram**: every class in the program, names and relationships
-only. It answers "what exists and what talks to what", so it carries no members.
+**Figures 1A and 1B together are the class diagram.** It is too large for one page, so it is
+split into two clearly labelled parts, as permitted. Every major class appears in exactly one
+part with its key attributes and its full public interface; where a relationship crosses the
+split, the far class appears as a name-only box marked with the part that details it.
 
-**Figures 2–8 are detailed diagrams**, one per pattern or logical grouping. Each is complete for
-its subject — every participating class, with the members that matter at that level of
-abstraction. Nothing is dropped for tidiness: the Command figure shows all thirteen commands,
-the district figure shows all thirteen districts.
+- **Part A — Application and control:** Observer infrastructure, View, Controller, the command
+  interpreter, and the turn state machine.
+- **Part B — Domain model:** `Game` and its economy, the circuit, the district hierarchy, and
+  persistence.
+
+**Figures 2–7 are supplementary per-pattern views**, referenced from the Design Patterns section
+of the report. They repeat classes already in 1A/1B, reduced to just the participants in one
+pattern so the pattern's shape is visible without tracing it out of the full diagram.
 
 Following Chapter 8, method **parameters are not associations** — `landOn(Game&, Player&)` passes
-references at call time, which the chapter explicitly excludes ("the argument that one routine
-passes to another … none of that is an association"). Only stored references and pointers appear
-as lines.
+references at call time, which the chapter explicitly excludes. Only stored references and
+pointers are drawn as lines.
 
 ## Notation (Chapter 8)
 
@@ -25,20 +30,17 @@ as lines.
 | *italics* | pure virtual | `= 0` |
 | <u>underline</u> | static | `static` |
 | `const` | query operation | `... const` |
-| ◁—— | generalization | `class B : public A` |
-| ◆—— | composition | by value or `unique_ptr` |
-| ◇—— | aggregation | `shared_ptr` |
+| ◁—— | **inheritance** (generalization) | `class B : public A` |
+| ◆—— | **composition** | by value or `unique_ptr` |
+| ◇—— | **aggregation** | `shared_ptr` |
 | ——▶ | association | stored reference or non-owning pointer |
-| ⋯▶ | dependency | creates / uses |
-
-Multiplicities appear at both ends of every association, since Chapter 8 notes that a final
-diagram should not leave them blank.
+| ⋯▶ | **dependency** | creates / uses |
 
 ---
 
-## Figure 1 — Master class diagram
+## Figure 1A — Class diagram, Part A: application and control
 
-Every class in the program. Names and relationships only.
+`Game` is shown name-only here; it is detailed in Part B.
 
 ```mermaid
 ---
@@ -49,100 +51,9 @@ config:
 classDiagram
     direction LR
 
-    class Subject { <<abstract>> }
-    class Observer { <<abstract>> }
-    class Game { <<Model>> }
-    class TextView { <<View>> }
-    class ControllerInterface { <<interface>> }
-    class GameController { <<Controller>> }
-    class District { <<abstract>> }
-    class OwnableDistrict { <<abstract>> }
-    class TurnState { <<interface>> }
-    class Command { <<interface>> }
-    class SaveGame { <<namespace>> }
-    class Setup { <<namespace>> }
-    class DistrictSpec { <<struct>> }
-
-    Subject <|-- Game
-    Observer <|-- TextView
-    ControllerInterface <|-- GameController
-
-    District <|-- OwnableDistrict
-    OwnableDistrict <|-- Workshop
-    OwnableDistrict <|-- Forge
-    OwnableDistrict <|-- Depot
-    District <|-- GrandEntrance
-    District <|-- Lockup
-    District <|-- FreeRest
-    District <|-- GoToLockup
-    District <|-- GuildLevy
-    District <|-- TransitToll
-    District <|-- MarketFestival
-    District <|-- WanderingMarket
-    District <|-- EnchantmentDeck
-
-    TurnState <|-- PreRollState
-    TurnState <|-- PostRollState
-    TurnState <|-- LockupState
-    TurnState <|-- AwaitingTradeResponseState
-
-    Command <|-- RollCommand
-    Command <|-- NextCommand
-    Command <|-- MortgageCommand
-    Command <|-- UnmortgageCommand
-    Command <|-- UpgradeCommand
-    Command <|-- TradeCommand
-    Command <|-- AcceptCommand
-    Command <|-- RejectCommand
-    Command <|-- InsolventCommand
-    Command <|-- AssetsCommand
-    Command <|-- AllCommand
-    Command <|-- SaveCommand
-    Command <|-- MessageCommand
-
-    Game "1" *-- "1" Board : circuit
-    Game "1" *-- "2..6" Player : artificers
-    Game "1" *-- "1" Turn : turn
-    Game "1" *-- "1" Dice : dice
-    Game "1" *-- "0..1" CardDeck : enhancement
-    Board "1" *-- "40" District : districts
-    Turn "1" *-- "4" TurnState : states
-
-    Subject "1" --> "*" Observer : notifies
-    TextView "1" o-- "1" ControllerInterface : strategy
-    TextView "1" --> "1" Game : observes and queries
-    GameController "1" --> "1" Game : mutates
-    Turn "1" --> "1" Game : context
-    TurnState "4" --> "1" Turn : context
-    Command "*" --> "1" Game : receiver
-    OwnableDistrict "*" --> "0..1" Player : owner
-
-    GameController ..> CommandParser : uses
-    CommandParser ..> Command : creates
-    Board ..> DistrictFactory : uses
-    DistrictFactory ..> DistrictSpec : reads
-    DistrictFactory ..> District : creates
-    SaveGame ..> Game : loads and saves
-    Setup ..> Game : builds roster
-```
-
----
-
-## Figure 2 — MVC + Observer
-
-Chapter 17 treats MVC as a compound pattern, so it is one figure. What makes this MVC rather
-than three arbitrary classes is the direction of every link: the **View owns the Controller** as
-its strategy, the **View observes the Model**, the **View queries the Model directly** on
-redraw, and the **Model names no View at all**.
-
-```mermaid
----
-config:
-  class:
-    hideEmptyMembersBox: true
----
-classDiagram
-    direction TB
+    class Game {
+        <<Model - detailed in Part B>>
+    }
 
     class Subject {
         <<abstract>>
@@ -154,10 +65,6 @@ classDiagram
     class Observer {
         <<abstract>>
         +update()*
-    }
-    class Game {
-        <<Model>>
-        +notifyObservers()
     }
     class TextView {
         <<View>>
@@ -172,229 +79,6 @@ classDiagram
         +handleCommand(string)*
     }
     class GameController {
-        +handleCommand(string)
-        -game_ : Game&
-    }
-
-    Subject <|-- Game
-    Observer <|-- TextView
-    ControllerInterface <|-- GameController
-    Subject "1" --> "*" Observer : notifies
-    TextView "1" o-- "1" ControllerInterface : strategy
-    TextView "1" --> "1" Game : queries on redraw
-    GameController "1" --> "1" Game : mutates
-```
-
-`TextView` registers itself as an Observer in its constructor and deregisters in its destructor.
-Notification fires once per command, from `GameController::handleCommand`, rather than from every
-Model mutator — the spec redraws the whole board after each command, so the command is the real
-unit of change.
-
----
-
-## Figure 3 — District hierarchy and Template Method
-
-All thirteen district classes. The Template Method lives on the ownable branch: `landOn` is
-`final` and fixes the sequence of a visit, `computeToll` is the only step that varies. The nine
-non-ownable districts override `landOn` directly and take no part in it.
-
-```mermaid
----
-config:
-  class:
-    hideEmptyMembersBox: true
----
-classDiagram
-    direction LR
-
-    class District {
-        <<abstract>>
-        +name() string const
-        +square() int const
-        +kind() DistrictKind const*
-        +guild() Guild const
-        +isOwnable() bool const
-        +upgradeCount() int const
-        +isMortgaged() bool const
-        +landOn(Game&, Player&)*
-        -square_ : int
-        -name_ : string
-    }
-    class OwnableDistrict {
-        <<abstract>>
-        +landOn(Game&, Player&) final
-        +owner() Player* const
-        +setOwner(Player*)
-        +setMortgaged(bool)
-        +buyPrice() int const
-        #computeToll(Game&, Player&) int const*
-        -owner_ : Player* [0..1]
-        -mortgaged_ : bool
-        -buyPrice_ : int
-    }
-    class Workshop {
-        #computeToll(Game&, Player&) int const
-        +setUpgrades(int)
-        +upgradeCost() int const
-        +tollAt(int) int const
-        -guild_ : Guild
-        -tolls_ : int[6]
-        -upgrades_ : int
-    }
-    class Forge {
-        #computeToll(Game&, Player&) int const
-    }
-    class Depot {
-        #computeToll(Game&, Player&) int const
-    }
-    class GrandEntrance { +landOn(Game&, Player&) }
-    class Lockup { +landOn(Game&, Player&) }
-    class FreeRest { +landOn(Game&, Player&) }
-    class GoToLockup { +landOn(Game&, Player&) }
-    class GuildLevy { +landOn(Game&, Player&) }
-    class TransitToll { +landOn(Game&, Player&) }
-    class MarketFestival { +landOn(Game&, Player&) }
-    class WanderingMarket { +landOn(Game&, Player&) }
-    class EnchantmentDeck { +landOn(Game&, Player&) }
-
-    District <|-- OwnableDistrict
-    OwnableDistrict <|-- Workshop
-    OwnableDistrict <|-- Forge
-    OwnableDistrict <|-- Depot
-    District <|-- GrandEntrance
-    District <|-- Lockup
-    District <|-- FreeRest
-    District <|-- GoToLockup
-    District <|-- GuildLevy
-    District <|-- TransitToll
-    District <|-- MarketFestival
-    District <|-- WanderingMarket
-    District <|-- EnchantmentDeck
-
-    OwnableDistrict "*" --> "0..1" Player : owner
-```
-
-The three `computeToll` overrides are genuinely different: `Workshop` indexes a six-entry table
-by upgrade level and doubles an unimproved toll when the Guild is complete; `Forge` indexes a
-levy table by how many Forges the owner holds; `Depot` multiplies the dice total by 4, or 10 when
-one Artificer holds both.
-
----
-
-## Figure 4 — State
-
-The Context **owns every state for its whole life** and swaps a non-owning pointer, rather than
-allocating on transition. `resume_` records the phase a trade offer interrupted, because an offer
-may be made before *or* after rolling.
-
-```mermaid
----
-config:
-  class:
-    hideEmptyMembersBox: true
----
-classDiagram
-    direction TB
-
-    class Turn {
-        <<Context>>
-        +roll(int, int)
-        +next()
-        +beginTurn()
-        +setState(TurnState*)
-        +preRollState() TurnState* const
-        +postRollState() TurnState* const
-        +lockupState() TurnState* const
-        +enterTradeResponse()
-        +resumeAfterTrade()
-        +countDouble()
-        +consecutiveDoubles() int const
-        -game_ : Game&
-        -preRoll_ : TurnState
-        -postRoll_ : TurnState
-        -lockup_ : TurnState
-        -awaitingTrade_ : TurnState
-        -state_ : TurnState*
-        -resume_ : TurnState* [0..1]
-        -consecutiveDoubles_ : int
-    }
-    class TurnState {
-        <<interface>>
-        +roll(int, int)*
-        +next()*
-        +name() string_view const*
-    }
-    class PreRollState {
-        +roll(int, int)
-        +next()
-        +name() string_view const
-        -turn_ : Turn&
-    }
-    class PostRollState {
-        +roll(int, int)
-        +next()
-        +name() string_view const
-        -turn_ : Turn&
-    }
-    class LockupState {
-        +roll(int, int)
-        +next()
-        +name() string_view const
-        -turn_ : Turn&
-    }
-    class AwaitingTradeResponseState {
-        +roll(int, int)
-        +next()
-        +name() string_view const
-        -turn_ : Turn&
-    }
-
-    TurnState <|-- PreRollState
-    TurnState <|-- PostRollState
-    TurnState <|-- LockupState
-    TurnState <|-- AwaitingTradeResponseState
-    Turn "1" *-- "4" TurnState : owns all four
-    Turn "1" --> "1" TurnState : state_, the active one
-    TurnState "4" --> "1" Turn : context
-    Turn "1" --> "1" Game : context
-```
-
----
-
-## Figure 5 — Turn phase transitions
-
-```mermaid
-stateDiagram-v2
-    [*] --> PreRoll : beginTurn / not detained
-    [*] --> Lockup : beginTurn / detained
-    PreRoll --> PreRoll : roll doubles
-    PreRoll --> PostRoll : roll, or third double
-    Lockup --> PostRoll : doubles, fine, token, or stay
-    PreRoll --> AwaitingTrade : trade offered
-    PostRoll --> AwaitingTrade : trade offered
-    AwaitingTrade --> PreRoll : accept or reject
-    AwaitingTrade --> PostRoll : accept or reject
-    PostRoll --> [*] : next
-```
-
----
-
-## Figure 6 — Command
-
-All thirteen commands. Each binds its receiver and its arguments as data members at
-construction, which is what lets the Invoker fire any request through one interface without
-knowing what it is.
-
-```mermaid
----
-config:
-  class:
-    hideEmptyMembersBox: true
----
-classDiagram
-    direction LR
-
-    class GameController {
         <<Invoker>>
         +handleCommand(string)
         -game_ : Game&
@@ -406,8 +90,6 @@ classDiagram
         <<interface>>
         +execute()*
     }
-    class Game { <<Receiver>> }
-
     class RollCommand {
         +execute()
         -game_ : Game&
@@ -470,7 +152,64 @@ classDiagram
         +execute()
         -message_ : string
     }
+    class Turn {
+        <<Context>>
+        +roll(int, int)
+        +next()
+        +beginTurn()
+        +setState(TurnState*)
+        +preRollState() TurnState* const
+        +postRollState() TurnState* const
+        +lockupState() TurnState* const
+        +enterTradeResponse()
+        +resumeAfterTrade()
+        +countDouble()
+        +resetDoubles()
+        +consecutiveDoubles() int const
+        +stateName() string_view const
+        -game_ : Game&
+        -preRoll_ : TurnState
+        -postRoll_ : TurnState
+        -lockup_ : TurnState
+        -awaitingTrade_ : TurnState
+        -state_ : TurnState*
+        -resume_ : TurnState* [0..1]
+        -consecutiveDoubles_ : int
+    }
+    class TurnState {
+        <<interface>>
+        +roll(int, int)*
+        +next()*
+        +name() string_view const*
+    }
+    class PreRollState {
+        +roll(int, int)
+        +next()
+        +name() string_view const
+        -turn_ : Turn&
+    }
+    class PostRollState {
+        +roll(int, int)
+        +next()
+        +name() string_view const
+        -turn_ : Turn&
+    }
+    class LockupState {
+        +roll(int, int)
+        +next()
+        +name() string_view const
+        -turn_ : Turn&
+    }
+    class AwaitingTradeResponseState {
+        +roll(int, int)
+        +next()
+        +name() string_view const
+        -turn_ : Turn&
+    }
 
+    Subject <|-- Game
+    Observer <|-- TextView
+    ControllerInterface <|-- GameController
     Command <|-- RollCommand
     Command <|-- NextCommand
     Command <|-- MortgageCommand
@@ -484,23 +223,29 @@ classDiagram
     Command <|-- AllCommand
     Command <|-- SaveCommand
     Command <|-- MessageCommand
+    TurnState <|-- PreRollState
+    TurnState <|-- PostRollState
+    TurnState <|-- LockupState
+    TurnState <|-- AwaitingTradeResponseState
 
+    Turn "1" *-- "4" TurnState : owns all four
+    Turn "1" --> "1" TurnState : state_, active
+    Turn "1" --> "1" Game : context
+    TurnState "4" --> "1" Turn : context
+    Subject "1" --> "*" Observer : notifies
+    TextView "1" o-- "1" ControllerInterface : strategy
+    TextView "1" --> "1" Game : observes and queries
+    GameController "1" --> "1" Game : mutates
+    Command "*" --> "1" Game : receiver
     GameController ..> CommandParser : uses
     CommandParser ..> Command : creates
-    GameController "1" --> "0..1" Command : execute()
-    Command "*" --> "1" Game : receiver
 ```
-
-`Command` declares `execute()` only. Chapter 20 adds `undo()` **when undo is required**, and
-ArcaneMarket has none. `MessageCommand` is the single command with no receiver: it reports a
-refusal, which keeps console output in the Command layer rather than in the parser.
 
 ---
 
-## Figure 7 — Simple Factory
+## Figure 1B — Class diagram, Part B: domain model
 
-One concrete creator with a static operation and **no creator hierarchy**. That absence is the
-point: it is what separates the Simple Factory idiom from the GoF Factory Method (Chapter 12).
+`Turn`, `TurnState` and `Command` are shown name-only here; they are detailed in Part A.
 
 ```mermaid
 ---
@@ -509,66 +254,46 @@ config:
     hideEmptyMembersBox: true
 ---
 classDiagram
-    direction TB
+    direction LR
 
-    class DistrictFactory {
-        +create(DistrictSpec&) District*$
-    }
-    class DistrictSpec {
-        <<struct>>
-        +square : int
-        +name : string_view
-        +kind : DistrictKind
-        +guild : Guild
-        +buyPrice : int
-        +upgradeCost : int
-        +tolls : int[6]
-    }
-    class District { <<abstract>> }
-    class Board {
-        +at(int) District&
-        -districts_ : District [40]
-    }
-
-    District <|-- Workshop
-    District <|-- Forge
-    District <|-- Depot
-    District <|-- OwnableDistrict
-    Board ..> DistrictFactory : uses
-    DistrictFactory ..> DistrictSpec : reads
-    DistrictFactory ..> District : creates
-    Board "1" *-- "40" District : districts
-```
-
----
-
-## Figure 8 — Model internals
-
-`Game` is the Model, and none of the pattern figures show what it actually holds. This is the
-economy: Reagents, the Treasury, the per-Artificer debt ledger, and the pending trade offer.
-
-```mermaid
----
-config:
-  class:
-    hideEmptyMembersBox: true
----
-classDiagram
-    direction TB
+    class Turn { <<detailed in Part A>> }
+    class TurnState { <<detailed in Part A>> }
+    class Command { <<detailed in Part A>> }
 
     class Game {
         <<Model>>
+        +board() Board&
+        +addPlayer(string, char) bool
+        +tokenTaken(char) bool const
+        +playerCount() size_t const
+        +player(size_t) Player&
+        +currentPlayer() Player&
+        +setCurrentPlayer(size_t)
+        +endTurn()
+        +testingMode() bool const
+        +rng() mt19937&
+        +dice() Dice&
+        +turn() Turn&
         +movePlayer(Player&, int)
         +sendToLockup(Player&)
         +offerLockupExit(Player&) bool
         +forceLockupExit(Player&) bool
         +payTreasury(Player&, int)
         +payPlayer(Player&, Player&, int)
+        +treasury() int const
+        +guildComplete(Guild, Player&) bool const
+        +countOwned(DistrictKind, Player&) int const
+        +totalWorth(Player&) int const
+        +drawEnchantmentValue() int
+        +usingShuffledDeck() bool const
+        +totalFreePasses() int const
+        +tryGrantFreePass(Player&) bool
+        +prompt(string) string const
+        +offerPurchase(OwnableDistrict&, Player&)
+        +runAuction(OwnableDistrict&)
         +owes(Player&) bool const
         +amountOwed(Player&) int const
         +declareInsolvency()
-        +offerPurchase(OwnableDistrict&, Player&)
-        +runAuction(OwnableDistrict&)
         +mortgage(string) bool
         +unmortgage(string) bool
         +buyUpgrade(string) bool
@@ -576,9 +301,12 @@ classDiagram
         +offerTrade(string, string, string) bool
         +acceptTrade()
         +rejectTrade()
-        +guildComplete(Guild, Player&) bool const
-        +totalWorth(Player&) int const
+        +hasTradeOffer() bool const
+        +solventCount() size_t const
         +winner() Player* const
+        +isOver() bool const
+        +printAssets(Player&) const
+        +printAllAssets() const
         -current_ : size_t
         -treasury_ : int
         -testingMode_ : bool
@@ -608,11 +336,17 @@ classDiagram
         +token() char const
         +reagents() int const
         +addReagents(int)
+        +setReagents(int)
         +position() int const
         +setPosition(int)
         +freePasses() int const
+        +setFreePasses(int)
         +inLockup() bool const
         +lockupTurns() int const
+        +sendToLockup()
+        +releaseFromLockup()
+        +serveLockupTurn()
+        +setLockupState(bool, int)
         +isInsolvent() bool const
         +declareInsolvent()
         -name_ : string
@@ -625,40 +359,429 @@ classDiagram
         -insolvent_ : bool
     }
     class Board {
+        +size() int$
         +at(int) District&
         +advance(int, int) int$
         +grandEntrancePasses(int, int) int$
+        +passedGrandEntrance(int, int) bool$
         +findOwnable(string) OwnableDistrict*
+        -districts_ : District [40]
+    }
+    class District {
+        <<abstract>>
+        +name() string const
+        +square() int const
+        +kind() DistrictKind const*
+        +guild() Guild const
+        +isOwnable() bool const
+        +ownerInitial() char const
+        +upgradeCount() int const
+        +isMortgaged() bool const
+        +landOn(Game&, Player&)*
+        -square_ : int
+        -name_ : string
+    }
+    class OwnableDistrict {
+        <<abstract>>
+        +landOn(Game&, Player&) final
+        +isOwnable() bool const
+        +owner() Player* const
+        +setOwner(Player*)
+        +isMortgaged() bool const
+        +setMortgaged(bool)
+        +ownerInitial() char const
+        +buyPrice() int const
+        #computeToll(Game&, Player&) int const*
+        -owner_ : Player* [0..1]
+        -mortgaged_ : bool
+        -buyPrice_ : int
+    }
+    class Workshop {
+        +kind() DistrictKind const
+        +guild() Guild const
+        +upgradeCount() int const
+        +setUpgrades(int)
+        +upgradeCost() int const
+        +tollAt(int) int const
+        #computeToll(Game&, Player&) int const
+        -guild_ : Guild
+        -upgradeCost_ : int
+        -tolls_ : int[6]
+        -upgrades_ : int
+    }
+    class Forge {
+        +kind() DistrictKind const
+        #computeToll(Game&, Player&) int const
+    }
+    class Depot {
+        +kind() DistrictKind const
+        #computeToll(Game&, Player&) int const
+    }
+    class GrandEntrance {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class Lockup {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class FreeRest {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class GoToLockup {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class GuildLevy {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class TransitToll {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class MarketFestival {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class WanderingMarket {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
+    }
+    class EnchantmentDeck {
+        +kind() DistrictKind const
+        +landOn(Game&, Player&)
     }
     class Dice {
         +roll()
         +set(int, int)
+        +first() int const
+        +second() int const
         +total() int const
         +isDoubles() bool const
+        -rng_ : mt19937&
+        -first_ : int
+        -second_ : int
     }
     class CardDeck {
         +draw() int
         +remaining() size_t const
+        +size() size_t$
+        -rng_ : mt19937&
         -cards_ : int [18]
         -next_ : size_t
+    }
+    class DistrictFactory {
+        +create(DistrictSpec&) District*$
+    }
+    class DistrictSpec {
+        <<struct>>
+        +square : int
+        +name : string_view
+        +kind : DistrictKind
+        +guild : Guild
+        +buyPrice : int
+        +upgradeCost : int
+        +tolls : int[6]
     }
     class SaveGame {
         <<namespace>>
         +load(Game&, string, string&) bool
         +save(Game&, string) bool
     }
+    class Setup {
+        <<namespace>>
+        +runNewGame(Game&, istream&, ostream&) bool
+    }
 
-    Game "1" *-- "2..6" Player : artificers
+    District <|-- OwnableDistrict
+    OwnableDistrict <|-- Workshop
+    OwnableDistrict <|-- Forge
+    OwnableDistrict <|-- Depot
+    District <|-- GrandEntrance
+    District <|-- Lockup
+    District <|-- FreeRest
+    District <|-- GoToLockup
+    District <|-- GuildLevy
+    District <|-- TransitToll
+    District <|-- MarketFestival
+    District <|-- WanderingMarket
+    District <|-- EnchantmentDeck
+
     Game "1" *-- "1" Board : circuit
+    Game "1" *-- "2..6" Player : artificers
     Game "1" *-- "1" Dice : dice
     Game "1" *-- "0..1" CardDeck : enhancement
+    Game "1" *-- "1" Turn : turn
     Game "1" *-- "*" Debt : ledger, one per debtor
     Game "1" *-- "1" TradeOffer : pending offer
+    Board "1" *-- "40" District : districts
+    Turn "1" *-- "4" TurnState : states
+
     Debt "*" --> "0..1" Player : creditor
     TradeOffer "1" --> "2" Player : parties
+    TradeOffer "1" --> "0..2" OwnableDistrict : stakes
+    OwnableDistrict "*" --> "0..1" Player : owner
+    Command "*" --> "1" Game : receiver
+
+    Board ..> DistrictFactory : uses
+    DistrictFactory ..> DistrictSpec : reads
+    DistrictFactory ..> District : creates
     SaveGame ..> Game : loads and saves
+    Setup ..> Game : builds roster
 ```
 
-A debt per Artificer, rather than one globally, is required because the insolvency settlement
-charges mortgage fees to the **creditor** — who is not the Artificer taking the turn — so that
-obligation has to outlive the turn that created it.
+Crafting Guild membership is a value (`enum class Guild`) carried by each `Workshop`, not a
+class, so guild size appears as a rule rather than a multiplicity: Ember has 4 Workshops, Smoke
+3, Arcane 4, Gilded 5. `Game::guildComplete` counts the actual membership rather than assuming a
+fixed size.
+
+---
+
+## Figure 2 — MVC + Observer (supplementary)
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    direction TB
+
+    class Subject {
+        <<abstract>>
+        +addObserver(Observer*)
+        +removeObserver(Observer*)
+        +notifyObservers()
+        -observers_ : Observer* [*]
+    }
+    class Observer {
+        <<abstract>>
+        +update()*
+    }
+    class Game { <<Model>> }
+    class TextView {
+        <<View>>
+        +update()
+        +render(ostream&) const
+        +handleInput(string)
+        -game_ : Game&
+        -controller_ : ControllerInterface
+    }
+    class ControllerInterface {
+        <<interface>>
+        +handleCommand(string)*
+    }
+    class GameController {
+        <<Controller>>
+        +handleCommand(string)
+        -game_ : Game&
+    }
+
+    Subject <|-- Game
+    Observer <|-- TextView
+    ControllerInterface <|-- GameController
+    Subject "1" --> "*" Observer : notifies
+    TextView "1" o-- "1" ControllerInterface : strategy
+    TextView "1" --> "1" Game : queries on redraw
+    GameController "1" --> "1" Game : mutates
+```
+
+---
+
+## Figure 3 — Template Method (supplementary)
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    direction TB
+
+    class OwnableDistrict {
+        <<abstract>>
+        +landOn(Game&, Player&) final
+        #computeToll(Game&, Player&) int const*
+    }
+    class Workshop {
+        #computeToll(Game&, Player&) int const
+    }
+    class Forge {
+        #computeToll(Game&, Player&) int const
+    }
+    class Depot {
+        #computeToll(Game&, Player&) int const
+    }
+
+    OwnableDistrict <|-- Workshop
+    OwnableDistrict <|-- Forge
+    OwnableDistrict <|-- Depot
+```
+
+`landOn` is `final` and fixes the sequence — unowned? owned by the visitor? mortgaged? otherwise
+charge — while `computeToll` is the only step that varies.
+
+---
+
+## Figure 4 — State (supplementary)
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    direction TB
+
+    class Turn {
+        <<Context>>
+        +roll(int, int)
+        +next()
+        +setState(TurnState*)
+        -preRoll_ : TurnState
+        -postRoll_ : TurnState
+        -lockup_ : TurnState
+        -awaitingTrade_ : TurnState
+        -state_ : TurnState*
+        -resume_ : TurnState* [0..1]
+    }
+    class TurnState {
+        <<interface>>
+        +roll(int, int)*
+        +next()*
+    }
+    class PreRollState {
+        +roll(int, int)
+        +next()
+    }
+    class PostRollState {
+        +roll(int, int)
+        +next()
+    }
+    class LockupState {
+        +roll(int, int)
+        +next()
+    }
+    class AwaitingTradeResponseState {
+        +roll(int, int)
+        +next()
+    }
+
+    TurnState <|-- PreRollState
+    TurnState <|-- PostRollState
+    TurnState <|-- LockupState
+    TurnState <|-- AwaitingTradeResponseState
+    Turn "1" *-- "4" TurnState : owns all four
+    Turn "1" --> "1" TurnState : state_, active
+```
+
+---
+
+## Figure 5 — Turn phase transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> PreRoll : beginTurn / not detained
+    [*] --> Lockup : beginTurn / detained
+    PreRoll --> PreRoll : roll doubles
+    PreRoll --> PostRoll : roll, or third double
+    Lockup --> PostRoll : doubles, fine, token, or stay
+    PreRoll --> AwaitingTrade : trade offered
+    PostRoll --> AwaitingTrade : trade offered
+    AwaitingTrade --> PreRoll : accept or reject
+    AwaitingTrade --> PostRoll : accept or reject
+    PostRoll --> [*] : next
+```
+
+---
+
+## Figure 6 — Command (supplementary)
+
+Three of the thirteen commands, chosen to show the range of bound arguments. All thirteen appear
+in Figure 1A.
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    direction TB
+
+    class GameController {
+        <<Invoker>>
+        +handleCommand(string)
+    }
+    class CommandParser {
+        +parse(Game&, string) Command*$
+    }
+    class Command {
+        <<interface>>
+        +execute()*
+    }
+    class RollCommand {
+        +execute()
+        -game_ : Game&
+        -die1_ : int
+        -die2_ : int
+    }
+    class TradeCommand {
+        +execute()
+        -game_ : Game&
+        -target_ : string
+        -give_ : string
+        -receive_ : string
+    }
+    class MessageCommand {
+        +execute()
+        -message_ : string
+    }
+    class Game { <<Receiver>> }
+
+    Command <|-- RollCommand
+    Command <|-- TradeCommand
+    Command <|-- MessageCommand
+    GameController ..> CommandParser : uses
+    CommandParser ..> Command : creates
+    GameController "1" --> "0..1" Command : execute()
+    RollCommand "*" --> "1" Game : receiver
+    TradeCommand "*" --> "1" Game : receiver
+```
+
+---
+
+## Figure 7 — Simple Factory (supplementary)
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    direction TB
+
+    class DistrictFactory {
+        +create(DistrictSpec&) District*$
+    }
+    class DistrictSpec { <<struct>> }
+    class District { <<abstract>> }
+    class Board
+
+    District <|-- Workshop
+    District <|-- Forge
+    District <|-- Depot
+    Board ..> DistrictFactory : uses
+    DistrictFactory ..> DistrictSpec : reads
+    DistrictFactory ..> District : creates
+    Board "1" *-- "40" District : districts
+```
+
+One concrete creator with a static operation and **no creator hierarchy** — that absence is what
+separates the Simple Factory idiom from GoF Factory Method.

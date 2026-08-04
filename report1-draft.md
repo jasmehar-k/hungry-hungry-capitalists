@@ -19,184 +19,254 @@
 
 ## 2. UML Class Diagram
 
-Source in `uml.md`, rendered images in `diagrams/uml-1.png` … `uml-8.png`.
+Source in `uml.md`; rendered images in `diagrams/`.
 
-| Figure | Subject |
-|---|---|
-| `uml-1.png` | **Master class diagram** — every class, names and relationships only |
-| `uml-2.png` | MVC + Observer |
-| `uml-3.png` | District hierarchy and Template Method |
-| `uml-4.png` | State — `Turn` and its four phases |
-| `uml-5.png` | State — phase transitions (state diagram) |
-| `uml-6.png` | Command — all thirteen commands |
-| `uml-7.png` | Simple Factory |
-| `uml-8.png` | Model internals — the economy, debt ledger and trade offer |
+| Image file | Figure | Subject |
+|---|---|---|
+| `uml-1.png` | **1A** | **Class diagram, Part A** — application and control |
+| `uml-2.png` | **1B** | **Class diagram, Part B** — domain model |
+| `uml-3.png` | 2 | MVC + Observer (supplementary) |
+| `uml-4.png` | 3 | Template Method (supplementary) |
+| `uml-5.png` | 4 | State (supplementary) |
+| `uml-6.png` | 5 | Turn phase transitions (state diagram) |
+| `uml-7.png` | 6 | Command (supplementary) |
+| `uml-8.png` | 7 | Simple Factory (supplementary) |
 
-The set is organised as **one master diagram plus detailed diagrams per pattern or
-logical grouping**.
+**Figures 1A and 1B together are the class diagram.** It is too large for one page, so it
+is split into two clearly labelled parts. Every major class appears in exactly one part
+with its key attributes and its full public interface. Where a relationship crosses the
+split, the far class appears as a name-only box marked with the part that details it, so
+no relationship is lost at the seam.
 
-Figure 1 answers "what exists and what talks to what". It carries every class in the
-program and no members at all, because at that level of abstraction the relationships are
-the entire content.
+- **Part A — application and control:** the Observer infrastructure, `TextView`,
+  `ControllerInterface` / `GameController`, `CommandParser`, `Command` and all thirteen
+  concrete commands, and `Turn` with its four states.
+- **Part B — domain model:** `Game` and its economy (`Debt`, `TradeOffer`, the Treasury),
+  `Player`, `Board`, the full `District` hierarchy, `Dice`, `CardDeck`, `DistrictFactory`,
+  `DistrictSpec`, and the `SaveGame` / `Setup` namespaces.
 
-Figures 2–8 each take one pattern or one logical grouping and show it **completely**: all
-thirteen districts in the hierarchy figure, all thirteen commands in the Command figure,
-every member of `Game` that carries game state in the Model figure. Detail is chosen by
-what the figure is about, not trimmed to fit — the members shown for a class differ
-between figures precisely because the level of abstraction differs. `Workshop` carries its
-toll table in the district figure, where the data matters; `RollCommand` carries its bound
-`game_`, `die1_` and `die2_` in the Command figure, because binding receiver and arguments
-at construction is what Chapter 20 identifies as the pattern's distinguishing feature.
+**Figures 2–7 are supplementary per-pattern views**, referenced from §3. They repeat
+classes already present in 1A/1B, reduced to the participants in a single pattern so its
+shape can be seen without tracing it out of the full diagram.
+
+**Notation** follows Chapter 8: `+ - #` for visibility, *italics* for pure virtual,
+underline for static, `const` marking query operations, hollow triangle for inheritance,
+filled diamond for composition, hollow diamond for aggregation, dashed open arrow for
+dependency.
+
+**Relationship kinds** were chosen using the chapter's decision procedure rather than by
+eye:
+
+- **Composition** (filled diamond) wherever the whole holds the part by value or by
+  `unique_ptr` and destroys it: `Game ◆— Board`, `◆— Player [2..6]`, `◆— Turn`, `◆— Dice`,
+  `◆— CardDeck [0..1]`, `Board ◆— District [40]`, `Turn ◆— TurnState [4]`.
+- **Aggregation** (hollow diamond) for the one `shared_ptr`: `TextView ◇— ControllerInterface`.
+  The Controller does not die with the View, which is what separates this from composition.
+- **Association** (plain line) for stored non-owning pointers: `Subject —▶ Observer`, and
+  `OwnableDistrict —▶ Player` with role name `owner` and multiplicity `0..1`, since an
+  unowned district holds `nullptr`.
+- **Dependency** (dashed) for create/use relationships that are not stored:
+  `Board ⋯▶ DistrictFactory`, `DistrictFactory ⋯▶ District`, `CommandParser ⋯▶ Command`,
+  `SaveGame ⋯▶ Game`.
+
+**Multiplicities** appear on both ends of every association. The most significant are
+`1 Board — 40 District`, `1 Game — 2..6 Player`, and `1 Turn — 4 TurnState`. Crafting
+Guild membership is *not* a multiplicity here: `Guild` is an `enum class` value carried by
+each `Workshop`, not a class, so guild sizes (Ember 4, Smoke 3, Arcane 4, Gilded 5) are
+enforced as a rule in `Game::guildComplete`, which counts actual membership rather than
+assuming a fixed group size.
 
 Following Chapter 8, method **parameters are not associations**: `landOn(Game&, Player&)`
-passes references at call time, which the chapter explicitly excludes. Only stored
-references and pointers are drawn as lines.
-
-Notation follows Chapter 8: `+ - #` for visibility, *italics* for pure virtual, underline
-for static, `const` marking query operations, hollow triangle for generalization, filled
-diamond for composition, hollow diamond for aggregation, dashed arrow for dependency.
-Every association carries multiplicities at both ends, since the chapter notes that a
-final diagram should not leave them blank.
-
-**Choosing each relationship** followed the chapter's decision procedure rather than
-guesswork:
-
-- `Game ◆— Board`, `◆— Dice`: held by value, destroyed with the `Game`. Composition.
-- `Game ◆— Player / Turn / CardDeck`, `Board ◆— District`, `Turn ◆— TurnState`:
-  `unique_ptr`, which Chapter 8 calls "the key signal of composition".
-- `TextView ◇— ControllerInterface`: a `shared_ptr`. The Controller does not die with the
-  View, so this is **aggregation**, matching Chapter 17's own diagram of the same idea.
-- `Subject —▶ Observer`: a plain association, not a diamond. The observer list holds
-  non-owning raw pointers, so a Subject is not *made of* its Observers.
-- `OwnableDistrict —▶ Player`: plain association, role name `owner`, multiplicity `0..1`
-  because an unowned district holds `nullptr`.
+passes references at call time, which the chapter explicitly excludes from association.
+Only stored references and pointers are drawn as lines.
 
 ---
 
 ## 3. Design Patterns Used
 
-| Pattern | Chapter | Location | Status |
-|---|---|---|---|
-| MVC | 17 | `game.*` (Model), `textview.*` (View), `controller.*` (Controller) | Realized |
-| Observer | 10, 17 | `observer.h`; `Game : Subject`, `TextView : Observer` | Realized |
-| Template Method | 14 | `district.*`, `workshop.cpp`, `forge.cpp`, `depot.cpp` | Realized |
-| State | 16 | `turn.*` (Context), `turnstate.*` (4 states) | Realized |
-| Command | 20 | `command.*` (13 commands), `commandparser.*`, `GameController` as Invoker | Realized |
-| Simple Factory (idiom) | 12 | `districtfactory.*`, `commandparser.*` | Used, **not** claimed as Factory Method |
-| Decorator | 11 | — | **Deliberately rejected** — see Design Question 3 |
-| Iterator | 15 | — | Not used — the circuit is indexed directly by square number |
-
-### 3.1 MVC (Chapter 17)
-
-`Game` is the Model and holds every piece of game state. `TextView` is the View. `GameController`
-is the Controller. The chapter's arrangement is **not** the one most people assume, and the code
-follows the chapter rather than the assumption:
-
-- the **View owns the Controller** as its Strategy (`shared_ptr<ControllerInterface>`),
-- the **View registers as an Observer of the Model**,
-- the **View queries the Model directly** when redrawing.
-
-The chapter warns that routing all data through the Controller "is not MVC", and that the
-Controller only handles user-initiated events. That is exactly the split here: user input
-arrives at `TextView::handleInput`, which forwards to the Controller; the Controller mutates
-the Model; the Model notifies; the View re-queries and redraws.
-
-**A deliberate deviation.** The chapter says the Model should notify at the end of every
-mutating method. Here notification fires once, at the command boundary, in
-`GameController::handleCommand`. The reason is that the spec redraws the *whole* board after
-every command, and a single command can move an Artificer, pay a toll, transfer a district and
-change the turn state — per-mutator notification redrew the board four times for one command.
-This was found in practice: attaching the View before setup made six `addPlayer` calls print
-six boards. Batching to the command boundary makes the redraw match the real unit of change.
-
-### 3.2 Observer (Chapters 10, 17)
-
-`observer.h` implements `Subject` and `Observer` in the chapter's shape: `addObserver` with
-duplicate detection via `std::find`, `removeObserver` via the erase-remove idiom,
-`notifyObservers` iterating and calling `update()`. `Game` extends `Subject` and never names a
-View. `TextView` registers itself in its constructor and deregisters in its destructor, the same
-lifetime contract Chapter 17's `StudentLeaf` uses. The observer list is non-owning raw pointers.
-
-The payoff is concrete rather than theoretical: because `Game` holds no reference to any view, a
-second view could attach with no change to the Model at all.
-
-### 3.3 Template Method (Chapter 14)
-
-`OwnableDistrict::landOn` is declared `final`. It fixes the invariant sequence of a visit —
-unowned? offer purchase; owned by the visitor? nothing; mortgaged? nothing; otherwise charge —
-and defers exactly one step, the price, to the pure virtual hook `computeToll`.
-
-The three subclasses vary only in that hook, and they vary genuinely:
-
-- `Workshop` indexes a six-entry toll table by upgrade level, doubling an *unimproved* toll when
-  the owner holds the whole Crafting Guild.
-- `Forge` indexes `kForgeLevy` by how many Forges the owner controls (25 / 50 / 100 / 200).
-- `Depot` multiplies the dice total by 4, or by 10 when one Artificer holds both.
-
-Making `landOn` `final` is the part that matters: it is what stops a subclass quietly reordering
-the sequence, which is the whole point of the pattern.
-
-### 3.4 State (Chapter 16)
-
-`Turn` is the Context. Following the chapter exactly, it **owns all four states as `unique_ptr`
-members constructed once** and swaps a raw, non-owning `state_` pointer through `setState`, so a
-transition allocates nothing. Each concrete state holds a `Turn&` reference and is `final`, with
-an `explicit` constructor. `turnstate.h` forward-declares `Turn` to break the cycle.
-
-The four phases exist because the spec's own turn description gives them different legal command
-sets: `PreRollState` (may roll, may not end turn), `PostRollState` (may end turn, may not roll),
-`LockupState` (rolling attempts the exit procedure), and `AwaitingTradeResponseState` (only
-`accept` / `reject`).
-
-`Turn` also records `resume_`, the phase a trade offer interrupted, because an offer may be made
-**before or after** rolling and the Context cannot assume a fixed state to return to. That is
-precisely the case an enum-plus-if-else turn model gets wrong silently.
-
-**`Turn` is a separate class rather than folding the states into `Game`** because `Game` is
-already the Model; holding four more members plus the turn's rules would push it past one
-responsibility.
-
-### 3.5 Command (Chapter 20)
-
-`Command` declares `execute()` and nothing else. Chapter 20 says the interface declares
-`execute()` "and, **when undo is required**, its inverse, `undo()`". ArcaneMarket has no undo
-requirement anywhere in the spec, so adding an `undo()` that all thirteen commands stub out
-would claim a capability the program does not have.
-
-Per the chapter, each concrete command **binds its receiver and arguments as data members at
-construction**, so commands are built fresh from each input line rather than registered once and
-handed an argument stream. `GameController` is the Invoker and knows only the interface.
-`CommandParser` returns `nullptr` for anything unrecognized, and that single return path is what
-satisfies the spec's "handle misspelled commands gracefully".
-
-`MessageCommand` is the one command with no receiver: it reports a refusal. It exists so that a
-specific diagnostic ("explicit dice values need `-testing`") can replace the generic "I don't
-understand", while keeping console output in the Command layer instead of pushing it into the
-parser.
-
-### 3.6 Simple Factory — used, and named honestly
-
-`DistrictFactory::create` builds the 40 districts from a static table, and `CommandParser::parse`
-builds commands from input. Both are the **Simple Factory idiom, not the GoF Factory Method**,
-and the report says so deliberately.
-
-Chapter 12 states plainly that the Gang of Four never named Simple Factory and that it suits "a
-small, fixed set of product types that you do not expect to grow". The 40-square circuit and the
-spec's command list are exactly that. Building an abstract creator hierarchy purely to make
-Factory Method applicable would be the over-engineering the same chapter warns against — "don't
-reach for factories when a constructor would do". Naming it accurately costs a claimed pattern
-and is the more defensible position.
-
-### 3.7 A note on Strategy
-
-Chapter 17 describes the Controller as the View's Strategy, and `TextView` does hold a
-`shared_ptr<ControllerInterface>`. However there is currently only **one** concrete controller,
-so nothing demonstrates swappability. It is therefore presented as part of MVC's compound
-structure rather than claimed as a pattern in its own right. A second controller is unlikely to
-earn its place later either: mode-specific command legality is State's job here, not a second
-Controller's.
+Six patterns are applied. Each is given as pattern name, where it is used, why it was chosen
+(including the alternatives rejected), and how it is implemented. Patterns that were considered
+and deliberately **not** used are listed at the end, since rejecting one is also a design
+decision.
 
 ---
+
+### 3.1 Model-View-Controller
+
+**Where it is used.** `Game` is the Model (`game.h` / `game.cpp`). `TextView` is the View
+(`textview.h` / `textview.cpp`). `ControllerInterface` and its concrete `GameController` are the
+Controller (`controller.h` / `controller.cpp`). See Figure 2.
+
+**Why it was chosen.** The spec requires the board to be redrawn after every command, requires a
+text display now, and lists a graphical display as an optional enhancement. The rules of the game
+therefore have to be expressed independently of how they are shown.
+
+*Alternatives considered and rejected:*
+
+- **One class holding both rules and printing.** Rejected because the rules could then only be
+  tested by capturing standard output, and adding the graphical display would mean editing the
+  rules themselves.
+- **Model and View with no Controller, the View interpreting input directly.** Rejected because
+  command parsing and legality checking would live inside the display class, so changing the
+  interpreter would mean touching rendering code.
+- **Controller mediating all data, with the View asking the Controller for state.** Rejected on
+  Chapter 17's own advice, which says routing all data through the Controller "is not MVC" and
+  creates unnecessary coupling; the View can query the Model directly.
+
+**How it is implemented.** `Game` holds all state and extends `Subject`, and names no View.
+`TextView` holds a `Game&` and a `shared_ptr<ControllerInterface>`, registers itself as an
+Observer of the Model, and on notification re-queries the Model and redraws. User input arrives
+at `TextView::handleInput`, which forwards it to the Controller; `GameController` mutates the
+Model and then fires a single notification for the whole command.
+
+---
+
+### 3.2 Observer
+
+**Where it is used.** `Subject` and `Observer` in `observer.h`; `Game` inherits `Subject`;
+`TextView` inherits `Observer`. See Figure 2.
+
+**Why it was chosen.** The Model must be able to trigger a redraw without knowing what displays
+exist, so that the graphical-display enhancement could be added without touching `Game`.
+
+*Alternatives considered and rejected:*
+
+- **`Game` holding a `TextView*` and calling `render()` directly.** Rejected because it couples
+  the Model to one concrete View; a second simultaneous view would require editing `Game`.
+- **The main loop calling `view.render()` after each command (polling).** Rejected because it
+  moves the "something changed" decision out of the Model, and a view attached later in the
+  program's life would not be driven at all.
+
+**How it is implemented.** `Subject` keeps a `vector<Observer*>` of non-owning pointers, with
+`addObserver` (duplicate-checked with `std::find`), `removeObserver` (erase-remove) and
+`notifyObservers`. `TextView` registers in its constructor and deregisters in its destructor.
+Notification is fired once per command from `GameController::handleCommand` rather than from
+every Model mutator, because the spec redraws the whole board after each command, so the command
+— not the individual field write — is the real unit of change.
+
+---
+
+### 3.3 Template Method
+
+**Where it is used.** `OwnableDistrict::landOn` (declared `final`) with the pure virtual hook
+`OwnableDistrict::computeToll`; overridden by `Workshop`, `Forge` and `Depot`. See Figure 3.
+
+**Why it was chosen.** Every visit to an ownable district follows the same fixed sequence —
+unowned, so offer it; owned by the visitor, so nothing; mortgaged, so nothing; otherwise charge —
+but the amount charged is computed three entirely different ways.
+
+*Alternatives considered and rejected:*
+
+- **A single `landOn` with a `switch` on `DistrictKind`.** Rejected because adding a district
+  kind would mean editing that function, and the invariant sequence would sit interleaved with
+  three unrelated pricing rules.
+- **Strategy, injecting a `TollPolicy` object into each district.** Rejected because the pricing
+  rule is fixed by the district's type and never changes at runtime; a swappable policy object
+  would add an allocation and a level of indirection to buy flexibility the game never uses.
+
+**How it is implemented.** `landOn` is `final`, so no subclass can reorder or skip a step of the
+sequence, and `computeToll` is a protected pure virtual — the single point of variation.
+`Workshop` indexes a six-entry toll table by upgrade level and doubles an unimproved toll when
+the owner holds the whole Crafting Guild; `Forge` indexes a levy table by how many Forges the
+owner controls; `Depot` multiplies the dice total by four, or ten when one Artificer holds both.
+
+---
+
+### 3.4 State
+
+**Where it is used.** `Turn` is the Context (`turn.h` / `turn.cpp`); `TurnState` is the state
+interface, with `PreRollState`, `PostRollState`, `LockupState` and `AwaitingTradeResponseState`
+(`turnstate.h` / `turnstate.cpp`). See Figures 4 and 5.
+
+**Why it was chosen.** Which commands are legal depends on the phase of the turn: `roll` only
+when a roll is pending, `next` only when it is not, rolling in The Lockup runs an exit procedure
+instead of moving, and while a trade offer is outstanding only `accept` and `reject` apply.
+
+*Alternatives considered and rejected:*
+
+- **An `enum TurnPhase` with `if`/`else` chains in each command.** Rejected on Chapter 16's
+  argument: every new phase requires editing every command, and the phase logic ends up scattered
+  across the code rather than localised.
+- **A set of booleans (`hasRolled`, `isDetained`, `awaitingTrade`).** Rejected because they admit
+  contradictory combinations that no rule permits, and nothing enforces which transitions are
+  legal.
+
+**How it is implemented.** `Turn` owns all four states as `unique_ptr` members constructed once,
+and selects the active one through a raw non-owning `state_` pointer, so a transition allocates
+nothing. Each concrete state holds a `Turn&` and drives its own transitions by calling
+`setState`. `Turn` additionally records `resume_`, the phase a trade offer interrupted, because
+an offer may be made before *or* after rolling and the Context cannot assume a fixed state to
+return to.
+
+---
+
+### 3.5 Command
+
+**Where it is used.** The `Command` interface and thirteen concrete commands (`RollCommand`,
+`NextCommand`, `MortgageCommand`, `UnmortgageCommand`, `UpgradeCommand`, `TradeCommand`,
+`AcceptCommand`, `RejectCommand`, `InsolventCommand`, `AssetsCommand`, `AllCommand`,
+`SaveCommand`, `MessageCommand`) in `command.h` / `command.cpp`; `CommandParser` in
+`commandparser.*`; `GameController` acts as the Invoker and `Game` as the Receiver. See Figures
+1A and 6.
+
+**Why it was chosen.** The spec defines eleven commands with different arities — from bare `next`
+to `trade <name> <give> <receive>` — and requires that misspelled commands be handled gracefully
+rather than crashing.
+
+*Alternatives considered and rejected:*
+
+- **An `if`/`else` chain on the verb inside the controller.** Rejected because it mixes parsing
+  with execution and grows without bound; every new command would mean editing the controller.
+- **A `map<string, function<void(istream&)>>` of handlers.** Rejected because arguments would
+  then either be re-parsed inside each handler or captured untyped in a lambda. Binding them as
+  typed data members at construction is what Chapter 20 prescribes and is what makes each request
+  a self-contained object.
+
+**How it is implemented.** Each concrete command stores its receiver (`Game&`) and its parsed
+arguments as data members, so it is complete before it is executed. `CommandParser::parse` builds
+the right command from an input line and returns `nullptr` for anything it does not recognise,
+which is the graceful-failure path the spec requires. `GameController` fires `execute()` through
+the interface without knowing which command it holds. `undo()` is deliberately absent: Chapter 20
+adds it only "when undo is required", and ArcaneMarket has no undo.
+
+---
+
+### 3.6 Simple Factory
+
+**Where it is used.** `DistrictFactory::create` (`districtfactory.*`), called by `Board`'s
+constructor; the same idiom appears in `CommandParser::parse`. See Figure 7.
+
+**Why it was chosen.** `Board` must build 40 districts of twelve different kinds from the static
+board table without the names of concrete district classes spreading through the code.
+
+*Alternatives considered and rejected:*
+
+- **A `switch` inside `Board`'s constructor.** Rejected because it puts every concrete district
+  class name into `Board` and mixes object construction with circuit management.
+- **GoF Factory Method with an abstract creator hierarchy.** Rejected deliberately. Chapter 12
+  states that Simple Factory suits "a small, fixed set of product types that you do not expect to
+  grow" — which the 40-square circuit is — and warns against reaching for factories when a
+  constructor would do. Building a creator hierarchy purely so the stronger pattern could be
+  claimed would be over-engineering.
+
+**How it is implemented.** A single static `create` takes a `DistrictSpec` from the board table,
+switches on its `kind`, and returns `unique_ptr<District>`. It is the one place in the program
+where concrete district class names appear. It is named the Simple Factory *idiom* rather than
+Factory Method because there is no creator hierarchy, which is precisely the structural
+difference between the two.
+
+---
+
+### 3.7 Patterns considered and deliberately not used
+
+- **Decorator** for Workshop upgrades. Rejected; the reasoning is Design Question 3 below.
+- **Iterator** for traversing the circuit. The board is a `vector<unique_ptr<District>>` indexed
+  directly by square number, and movement is arithmetic modulo 40. A hand-written iterator would
+  add notation without removing any indirection.
+- **Strategy** as a separate claim. Chapter 17 describes the Controller as the View's Strategy and
+  `TextView` does hold a `shared_ptr<ControllerInterface>`, but only one concrete controller
+  exists, so nothing demonstrates swappability. It is reported as part of MVC's compound
+  structure rather than claimed in its own right.
 
 ## 4. Design Questions
 
