@@ -73,6 +73,7 @@ classDiagram
         +handleInput(string)
         -game_ : Game&
         -controller_ : ControllerInterface
+        -out_ : ostream&
     }
     class ControllerInterface {
         <<interface>>
@@ -150,6 +151,7 @@ classDiagram
     }
     class MessageCommand {
         +execute()
+        -out_ : ostream&
         -message_ : string
     }
     class Turn {
@@ -157,6 +159,8 @@ classDiagram
         +roll(int, int)
         +next()
         +beginTurn()
+        +out() ostream&
+        +endTurn()
         +setState(TurnState*)
         +preRollState() TurnState* const
         +postRollState() TurnState* const
@@ -273,7 +277,11 @@ classDiagram
         +testingMode() bool const
         +rng() mt19937&
         +dice() Dice&
-        +turn() Turn&
+        +out() ostream& const
+        +roll(int, int)
+        +next()
+        +beginTurn()
+        +turnStateName() string_view const
         +movePlayer(Player&, int)
         +sendToLockup(Player&)
         +offerLockupExit(Player&) bool
@@ -284,13 +292,13 @@ classDiagram
         +guildComplete(Guild, Player&) bool const
         +countOwned(DistrictKind, Player&) int const
         +totalWorth(Player&) int const
+        +districtsOwnedBy(Player&) OwnableDistrict* [*] const
         +drawEnchantmentValue() int
         +usingShuffledDeck() bool const
         +totalFreePasses() int const
         +tryGrantFreePass(Player&) bool
         +prompt(string) string const
         +offerPurchase(OwnableDistrict&, Player&)
-        +runAuction(OwnableDistrict&)
         +owes(Player&) bool const
         +amountOwed(Player&) int const
         +declareInsolvency()
@@ -305,14 +313,18 @@ classDiagram
         +solventCount() size_t const
         +winner() Player* const
         +isOver() bool const
-        +printAssets(Player&) const
-        +printAllAssets() const
         -current_ : size_t
         -treasury_ : int
         -testingMode_ : bool
+        -in_ : istream&
+        -out_ : ostream&
         -rng_ : mt19937
         -debts_ : Debt [*]
         -offer_ : TradeOffer
+    }
+    class Auction {
+        +run(OwnableDistrict&)
+        -game_ : Game&
     }
     class Debt {
         <<struct>>
@@ -364,8 +376,11 @@ classDiagram
         +advance(int, int) int$
         +grandEntrancePasses(int, int) int$
         +passedGrandEntrance(int, int) bool$
+        +ownables() OwnableDistrict* [22]
         +findOwnable(string) OwnableDistrict*
+        +findWorkshop(string) Workshop*
         -districts_ : District [40]
+        -ownables_ : OwnableDistrict* [22]
     }
     class District {
         <<abstract>>
@@ -377,6 +392,7 @@ classDiagram
         +ownerInitial() char const
         +upgradeCount() int const
         +isMortgaged() bool const
+        +buyPrice() int const
         +landOn(Game&, Player&)*
         -square_ : int
         -name_ : string
@@ -391,6 +407,7 @@ classDiagram
         +setMortgaged(bool)
         +ownerInitial() char const
         +buyPrice() int const
+        +upgradeInvestment() int const
         #computeToll(Game&, Player&) int const*
         -owner_ : Player* [0..1]
         -mortgaged_ : bool
@@ -402,6 +419,7 @@ classDiagram
         +upgradeCount() int const
         +setUpgrades(int)
         +upgradeCost() int const
+        +upgradeInvestment() int const
         +tollAt(int) int const
         #computeToll(Game&, Player&) int const
         -guild_ : Guild
@@ -524,6 +542,8 @@ classDiagram
     TradeOffer "1" --> "0..2" OwnableDistrict : stakes
     OwnableDistrict "*" --> "0..1" Player : owner
     Command "*" --> "1" Game : receiver
+    Auction "1" --> "1" Game : bids through
+    Game ..> Auction : creates per sale
 
     Board ..> DistrictFactory : uses
     DistrictFactory ..> DistrictSpec : reads
@@ -569,6 +589,7 @@ classDiagram
         +handleInput(string)
         -game_ : Game&
         -controller_ : ControllerInterface
+        -out_ : ostream&
     }
     class ControllerInterface {
         <<interface>>
@@ -740,6 +761,7 @@ classDiagram
     }
     class MessageCommand {
         +execute()
+        -out_ : ostream&
         -message_ : string
     }
     class Game { <<Receiver>> }

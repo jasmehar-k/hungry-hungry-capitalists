@@ -127,8 +127,9 @@ distinct **axes of variation**:
 Collapsing them gives one class with three reasons to change, which is the definition of an SRP
 violation and produces exactly the low cohesion the course calls a god class. Kept apart, each
 has **functional cohesion**: every element contributes to one well-defined task. That the split
-is real and not nominal is demonstrated rather than asserted — the test harnesses construct a
-`Game`, drive it and assert on its state with no view attached at all, 78 checks running headless.
+is real and not nominal is demonstrated rather than asserted — the test harness
+(`tests/gametest.cpp`, run with `make test`) constructs a `Game` over string streams, drives it
+and asserts on its state with no view attached at all, 56 checks running headless.
 
 *Alternatives rejected:* **one class holding rules and rendering** — three reasons to change,
 god-class cohesion, and headless testing impossible; **Model and View with no Controller** —
@@ -144,13 +145,15 @@ forwards to the Controller; `GameController` mutates the Model, then fires one n
 the whole command. This is the standard composition the course names: *the Model is an observable
 subject; the View subscribes as an observer; the Controller mediates.*
 
-**An honest limitation.** What is separated is *rendering* from rules, not *all output* from
-rules. `Game` still writes narration straight to `std::cout` at 83 call sites — "Marco pays 26
-Reagents to Vera", the auction and Guild Levy prompts. Encapsulation says every public commitment
-constrains future change, and those `cout` calls are an undeclared commitment to a console: a
-graphical View could not reuse `Game` without them following it. A stricter MVC would route them
-through the View. This is the weakest point of the separation and the fair thing to be challenged
-on at the demo.
+**An honest limitation.** What is separated is *rendering* from rules, not *authorship of all
+output* from rules. `Game` still composes its own narration — "Marco pays 26 Reagents to Vera" —
+and runs the spec's mid-turn dialogues (purchase offers, auction bids, the Guild Levy choice), so
+those dialogues bypass the command pipeline. What was fixed rather than defended is the console
+commitment itself: `Game` and `TextView` take their `istream&`/`ostream&` by constructor
+injection, `main` is the only file naming `std::cin`/`std::cout`, and that seam is what lets the
+headless harness drive a full game through string streams. A graphical View would still need to
+decide what to do with the Model's textual narration; that remaining authorship is the fair thing
+to be challenged on at the demo.
 
 ### 3.2 Observer
 

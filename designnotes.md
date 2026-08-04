@@ -8,8 +8,8 @@ What is claimed, and how strongly. Phase 2 peer review classifies each claimed p
 
 | Pattern | Where | Status |
 |---|---|---|
-| MVC | `Game` / `TextView` / `GameController` | Realized. Ch 17's arrangement: View owns the Controller, observes the Model, and queries the Model directly on redraw. |
-| Observer | `observer.h`, `Game : Subject`, `TextView : Observer` | Realized. `Game` notifies at the end of every mutator and never references a View. |
+| MVC | `Game` / `TextView` / `GameController` | Realized. Ch 17's arrangement: View owns the Controller, observes the Model, and queries the Model directly on redraw. The console exists only in `main`; Model and View take their streams by constructor injection. |
+| Observer | `observer.h`, `Game : Subject`, `TextView : Observer` | Realized. `Game` never references a View; `GameController` notifies once when each command finishes, the real unit of change (see Deliberate deviations). |
 | Template Method | `OwnableDistrict::landOn` (`final`) with `computeToll()` hook | Structure realized; the hook bodies fill in with the movement step. |
 | Simple Factory | `DistrictFactory::create` | Used, and **named as the Simple Factory idiom, not GoF Factory Method**. See below. |
 | State | `Turn` (Context) + `PreRollState` / `PostRollState` / `LockupState` / `AwaitingTradeResponseState` | Realized. Ch 16's shape: the Context owns every state as a `unique_ptr` built once and swaps a raw `state_` pointer. |
@@ -72,14 +72,23 @@ Notably this did **not** need Command objects. The seam is a single function ret
 
 ## Testing note worth reporting
 
-The two tables are the one part of this project that **playing the game cannot verify**. A mistyped weight still produces plausible-looking output forever. Two things guard them: the weights are asserted to sum to 24 and 18 at compile time, and the harness draws 200,000 outcomes from each and compares observed frequencies against the spec to within 0.004. That is what makes a transposed digit fail loudly instead of silently biasing every game.
+The two tables are the one part of this project that **playing the game cannot verify**. A mistyped weight still produces plausible-looking output forever. Two things guard them: the weights are asserted to sum to 24 and 18 at compile time, and `tests/tabletest.cpp` (run with `make test`) draws 200,000 outcomes from each and compares observed frequencies against the spec to within 0.004, then deals the shuffled deck through 100 consecutive passes and requires every pass to match Table 3 exactly, card for card. `tests/gametest.cpp` covers the rest of the Model headless — 56 checks over movement, tolls, mortgages, the Lockup, debts, insolvency and a byte-identical save/load round trip — which the injected streams make possible without a console. That is what makes a transposed digit fail loudly instead of silently biasing every game.
+
+## Cleanup pass against the course summary
+
+After the first feature-complete build, the code was audited against `Summary_Final_look.pdf` and four structural findings were fixed rather than defended. Each traded a named smell for a named principle, which is worth a sentence apiece in the report:
+
+- **The console left the Model** (DIP, MVC). `Game` and `TextView` take `istream&`/`ostream&` by constructor injection; `main` is the composition root and the only file that names `std::cin`/`std::cout`.
+- **The auction left `Game`** (SRP, cohesion). The bidding loop is an interactive dialogue with its own lifecycle; `Auction` runs it and `Game` keeps the rules, so `Game` sheds one reason to change. `Auction` is a plain class, not a claimed pattern.
+- **Type dispatch left the sweeps** (OCP — the summary calls the type-switch the canonical violation). `Board` classifies its districts once at construction into an ownables registry held in circuit order; every ownership sweep — worth, transfers, insolvency, save/load, assets — iterates the registry. Exactly two downcasts remain in the program: the constructor's classification pass and the kind-checked `findWorkshop`, both in `board.cpp` with the reason stated.
+- **Reach-through chains got forwarders** (Law of Demeter — the summary's `a.getB().getC()` shape). `game.turn().roll()` became `game.roll()`; states call `turn_.out()` / `turn_.endTurn()`; `Game` no longer exposes its `Turn` at all. Asset formatting also moved out of the Model into `AssetsCommand`/`AllCommand`, which render from `Game::districtsOwnedBy()` — the Model supplies data, not presentation.
 
 ## Deliberate deviations, with reasons
 
 Each of these is a judgement call worth defending in the report rather than hiding.
 
 - **Observer fires at the command boundary, not inside every mutator.** Ch 17 says the Model should call `notifyObservers()` at the end of every mutating method. Here one command can move an Artificer, pay a toll, transfer a district and change the turn state, and the spec redraws the *whole* board after every command — so per-mutator notification would redraw four times for one command. `GameController` notifies once when the command finishes, which is the real unit of change. This also fixes the setup problem found in the previous chunk, where six `addPlayer` calls printed six boards.
-- **The Model prints.** `Game` and the states write directly to `std::cout` rather than routing messages through the View. Strictly this leaks presentation into the Model, but both course examples do the same — Ch 16's `GumballMachine` and its states print directly. Routing every message through the View would have been cleaner MVC; the trade-off was made for time and consistency with the chapters.
+- **The Model narrates and asks, through injected streams.** `Game` composes its own event messages and runs the spec's mid-turn dialogues (buy?, auction bids, Lockup exit, Guild Levy choice), so those dialogues bypass the Command pipeline. That much is kept deliberately: both course examples narrate from the model layer — Ch 16's `GumballMachine` and its states print directly — and modelling each modal dialogue as a turn state would multiply states without adding behaviour. What was fixed rather than defended is the console itself: nothing outside `main.cpp` names `std::cin` or `std::cout`. The streams arrive by constructor injection (the DIP shape from the course summary), `Game::prompt()` is the single seam every dialogue reads through, and a scripted or captured game needs no global redirection.
 - **An auction where nobody bids makes no sale.** The spec says "when only one Artificer has not withdrawn, they win and must pay their final bid." If every other Artificer withdraws before any bid is made, the survivor's "final bid" does not exist. Rather than hand over a district for nothing, the district stays with the Guild. The spec is genuinely ambiguous here and this is the conservative reading.
 - **A debt is parked, not applied.** When a payment exceeds what the debtor holds, the balance is not driven negative. The debt is recorded and no turn may end until it is settled or insolvency is declared, which is exactly the choice the spec describes.
 
