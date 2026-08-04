@@ -19,29 +19,41 @@
 
 ## 2. UML Class Diagram
 
-Source in `uml.md`, rendered images in `diagrams/uml-1.png` … `uml-6.png`.
+Source in `uml.md`, rendered images in `diagrams/uml-1.png` … `uml-7.png`.
 
-| Figure | Contents |
+| Figure | Pattern demonstrated |
 |---|---|
-| `uml-1.png` | Overview — every class and relationship |
-| `uml-2.png` | District hierarchy — Template Method |
-| `uml-3.png` | `Turn` and its four states — State |
-| `uml-4.png` | Turn phase transitions (state diagram) |
-| `uml-5.png` | Command interpreter |
-| `uml-6.png` | MVC + Observer |
+| `uml-1.png` | MVC + Observer |
+| `uml-2.png` | Template Method |
+| `uml-3.png` | State — `Turn` and its four phases |
+| `uml-4.png` | State — phase transitions (state diagram) |
+| `uml-5.png` | Command |
+| `uml-6.png` | Simple Factory |
+| `uml-7.png` | Structural context — how the patterns compose |
+
+**Level of abstraction: the minimal detail needed to demonstrate each pattern's
+uniqueness.** The diagrams are organised by pattern rather than by file, and each box
+carries only the members that make its pattern identifiable — the roles, the polymorphic
+hook, and the data that distinguishes the pattern from a plain class. Members that exist
+in the code but say nothing about the pattern are omitted. This mirrors how the course
+chapters draw their own figures: Chapter 20's `Light` receiver shows only `setLevel` and
+`level`, not everything a `Light` can do.
+
+Concretely, that means `Workshop` appears in the Template Method figure with nothing but
+`computeToll`, because the overriding hook *is* its role in that pattern; its upgrade
+level and toll table appear nowhere, because they demonstrate nothing about Template
+Method. Conversely `RollCommand` shows its private `game_`, `die1_` and `die2_`, because
+a command binding its receiver and arguments at construction is precisely what Chapter 20
+identifies as the pattern's distinguishing feature.
+
+Where a compartment is empty it is a deliberate statement that no member of that kind is
+relevant to the pattern, not an omission.
 
 Notation follows Chapter 8: `+ - #` for visibility, *italics* for pure virtual, underline
 for static, `const` marking query operations, hollow triangle for generalization, filled
 diamond for composition, hollow diamond for aggregation, dashed arrow for dependency.
 Every association carries multiplicities at both ends, since the chapter notes that a
 final diagram should not leave them blank.
-
-Boxes are drawn at two levels of abstraction, which Chapter 8 sanctions explicitly
-("match the level of detail to the conversation"). The overview names classes and shows
-how they relate; the per-pattern figures are fully decorated. Classes that carry no state
-of their own — the six non-ownable districts that only override `landOn` — appear as
-name-only boxes, so the contrast between them and the classes with real behaviour is
-visible at a glance.
 
 **Choosing each relationship** followed the chapter's decision procedure rather than
 guesswork:
