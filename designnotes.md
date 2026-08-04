@@ -12,18 +12,20 @@ What is claimed, and how strongly. Phase 2 peer review classifies each claimed p
 | Observer | `observer.h`, `Game : Subject`, `TextView : Observer` | Realized. `Game` notifies at the end of every mutator and never references a View. |
 | Template Method | `OwnableDistrict::landOn` (`final`) with `computeToll()` hook | Structure realized; the hook bodies fill in with the movement step. |
 | Simple Factory | `DistrictFactory::create` | Used, and **named as the Simple Factory idiom, not GoF Factory Method**. See below. |
-| State | `Turn` (Context) + `PreRollState` / `PostRollState` / `LockupState` | Realized. Ch 16's shape: the Context owns every state as a `unique_ptr` built once and swaps a raw `state_` pointer. |
-| Command | `Command` + 8 concrete commands, `GameController` as Invoker | Realized. Arguments bound at construction, per Ch 20. |
+| State | `Turn` (Context) + `PreRollState` / `PostRollState` / `LockupState` / `AwaitingTradeResponseState` | Realized. Ch 16's shape: the Context owns every state as a `unique_ptr` built once and swaps a raw `state_` pointer. |
+| Command | `Command` + 12 concrete commands, `GameController` as Invoker | Realized. Arguments bound at construction, per Ch 20. |
 | Decorator | — | **Deliberately rejected.** See Design Question 3. |
-| Iterator | planned | Not yet written; do not claim until it exists. |
+| Iterator | — | Not used. The circuit is indexed directly by square number, so an iterator would add indirection without removing any. |
 
 ### Why Command carries no undo()
 
 Ch 20 says the interface declares `execute()` "and, **when undo is required**, its inverse, `undo()`." ArcaneMarket has no undo requirement anywhere in the spec, so `Command` declares `execute()` alone. Adding an `undo()` that every one of the eight commands stubs out would be the textbook "merely named" pattern — the interface would claim a capability the program does not have.
 
-### Why the State machine has three states, not four
+### The fourth state, added only once it was reachable
 
-`AwaitingTradeResponseState` is the natural fourth phase and is written up in the plan, but trading is spec priority 8 and is not implemented. An unreachable state class would pad the pattern without implementing it — the compiler actually caught this, warning that the state's `Turn&` member was unused. The class was removed with a comment marking where it belongs.
+`AwaitingTradeResponseState` was deliberately left out while trading was unimplemented: an unreachable state class would have padded the pattern without implementing it, and the compiler said so, warning that its `Turn&` member was unused. It went in with the `trade` command, and now carries real behaviour — it refuses both `roll` and `next`, naming the Artificer who owes an answer.
+
+It also forced a design point worth reporting: a trade may be offered **before or after** rolling, so the Context cannot assume a fixed state to return to. `Turn` records the phase the offer interrupted and restores it on `accept` or `reject`. This is exactly the kind of thing the enum-and-if-else approach gets wrong quietly.
 
 ### Why Factory Method is not claimed
 
@@ -56,7 +58,15 @@ The caveat worth stating in the report: the spec redraws the **entire** board af
 
 ## Design Question 2 — card-deck mechanics
 
-Not yet implemented. The spec's Wandering Market and Enchantment Deck are probability tables; a real shuffled deck is a listed bonus feature. Intended answer: each card becomes a **Command** object encapsulating its effect, and the deck is a collection traversed by an **Iterator** that reshuffles on exhaustion. Both patterns have chapters in `resources/`. Do not claim either until written.
+**What is built.** The spec defines both squares as *probability distributions* (Tables 2 and 3), not as a deck, so they are implemented as weighted tables in `cards.h` with integer weights — twenty-fourths for Table 2, eighteenths for Table 3 — drawn by a single uniform ticket. Seven classes wrapping seven integer deltas would have been pattern-padding of exactly the kind that kept `AwaitingTradeResponseState` out until it was reachable.
+
+**What would change for a real deck** (the listed bonus): the difference is not cosmetic. A distribution is memoryless — drawing −200 twice in a row is possible. A deck is *stateful*: each card is removed when drawn, so the remaining probabilities shift, and counting cards becomes a legitimate strategy. That is the real design consequence, and it is why the deck cannot be bolted on as a shuffle over the same table.
+
+Structurally the deck wants each card to be an object encapsulating its own effect — the **Command** intent, "encapsulate a request as an object" — held in a collection that deals from the front and reshuffles when exhausted. The tables already isolate the two draws behind `drawMarketOutcome` / `drawEnchantment`, so a deck implementation replaces those two functions and nothing else; the spec also requires bonus features be switchable at runtime, which that seam supports.
+
+## Testing note worth reporting
+
+The two tables are the one part of this project that **playing the game cannot verify**. A mistyped weight still produces plausible-looking output forever. Two things guard them: the weights are asserted to sum to 24 and 18 at compile time, and the harness draws 200,000 outcomes from each and compares observed frequencies against the spec to within 0.004. That is what makes a transposed digit fail loudly instead of silently biasing every game.
 
 ## Deliberate deviations, with reasons
 
