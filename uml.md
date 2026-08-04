@@ -28,6 +28,11 @@ relationships, the per-pattern diagrams are fully decorated.
 ## 1. Overview — the whole structure
 
 ```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
 classDiagram
     direction TB
 
@@ -91,6 +96,11 @@ classDiagram
 price to `computeToll`, the one varying step.
 
 ```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
 classDiagram
     direction TB
 
@@ -170,6 +180,11 @@ classDiagram
 offer interrupted, because an offer may be made before *or* after rolling.
 
 ```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
 classDiagram
     direction LR
 
@@ -251,6 +266,11 @@ command's receiver and arguments at construction, per Ch 20. A `nullptr` return 
 graceful path for a misspelled verb.
 
 ```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
 classDiagram
     direction LR
 
@@ -322,6 +342,11 @@ Strategy, the View registers as an Observer of the Model, and the View queries t
 directly when redrawing. The Controller only handles user-initiated events.
 
 ```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
 classDiagram
     direction LR
 
