@@ -7,6 +7,8 @@
 #include "savegame.h"
 #include "turn.h"
 
+void MessageCommand::execute() { std::cout << message_ << '\n'; }
+
 void RollCommand::execute() { game_.turn().roll(die1_, die2_); }
 
 void NextCommand::execute() { game_.turn().next(); }

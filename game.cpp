@@ -59,7 +59,9 @@ void Game::setCurrentPlayer(std::size_t index) {
 
 void Game::endTurn() {
     if (players_.empty() || solventCount() == 0) return;
-    if (hasPendingDebt()) {
+    // Only the current Artificer's own debt blocks their turn; one parked
+    // against someone else is settled when that Artificer's turn comes round.
+    if (hasPendingDebt() && debtor_ == &currentPlayer()) {
         std::cout << "settle the debt or declare insolvency before ending your turn\n";
         return;
     }
@@ -140,8 +142,15 @@ bool Game::forceLockupExit(Player &player) {
     // payTreasury parks a debt when the fine is unaffordable, which is what
     // stops an Artificer who cannot pay from being detained forever: the debt
     // blocks the turn until they raise funds or declare insolvency.
+    const int moveOncePaid = dice_.total();
     payTreasury(player, kLockupFine);
-    if (hasPendingDebt()) return false;
+    if (hasPendingDebt()) {
+        // The fine is owed but unpayable. Settling it later must still release
+        // them and move this roll, so remember both.
+        lockupFinePending_ = true;
+        lockupFineMove_ = moveOncePaid;
+        return false;
+    }
 
     player.releaseFromLockup();
     return true;
@@ -183,32 +192,42 @@ void Game::settleDebtIfPossible() {
     if (!hasPendingDebt()) return;
     if (debtor_->reagents() < debtAmount_) return;
 
+    Player &settled = *debtor_;
     if (creditor_ != nullptr) {
-        debtor_->addReagents(-debtAmount_);
+        settled.addReagents(-debtAmount_);
         creditor_->addReagents(debtAmount_);
-        std::cout << debtor_->name() << " settles " << debtAmount_ << " Reagents with "
+        std::cout << settled.name() << " settles " << debtAmount_ << " Reagents with "
                   << creditor_->name() << '\n';
     } else {
-        debtor_->addReagents(-debtAmount_);
+        settled.addReagents(-debtAmount_);
         treasury_ += debtAmount_;
-        std::cout << debtor_->name() << " settles " << debtAmount_
+        std::cout << settled.name() << " settles " << debtAmount_
                   << " Reagents with the Guild Treasury\n";
     }
     debtor_ = nullptr;
     creditor_ = nullptr;
     debtAmount_ = 0;
+
+    // A settled Lockup fine has bought the exit it was owed for: release the
+    // Artificer and make the move that the unpaid fine had held up.
+    if (lockupFinePending_) {
+        lockupFinePending_ = false;
+        settled.releaseFromLockup();
+        std::cout << settled.name() << " leaves The Lockup\n";
+        movePlayer(settled, lockupFineMove_);
+    }
 }
 
-void Game::transferDistrict(OwnableDistrict &district, Player &to) {
-    district.setOwner(&to);
-    if (!district.isMortgaged()) return;
+int Game::mortgageTransferFee(const OwnableDistrict &district) {
     // Receiving a mortgaged district costs 10% of its printed value now; the
     // later unmortgage still costs the full 60%.
-    const int fee = district.buyPrice() / 10;
-    to.addReagents(-fee);
-    treasury_ += fee;
-    std::cout << to.name() << " pays " << fee << " Reagents on the mortgaged "
-              << district.name() << '\n';
+    return district.isMortgaged() ? district.buyPrice() / 10 : 0;
+}
+
+int Game::transferDistrict(OwnableDistrict &district, Player &to) {
+    const int fee = mortgageTransferFee(district);
+    district.setOwner(&to);
+    return fee;
 }
 
 void Game::transferEverything(Player &from, Player &to) {
@@ -217,12 +236,21 @@ void Game::transferEverything(Player &from, Player &to) {
     to.setFreePasses(to.freePasses() + from.freePasses());
     from.setFreePasses(0);
 
+    int fees = 0;
     for (int square = 0; square < Board::size(); ++square) {
         auto *ownable = dynamic_cast<OwnableDistrict *>(&board_.at(square));
         if (!ownable || ownable->owner() != &from) continue;
-        transferDistrict(*ownable, to);
+        fees += transferDistrict(*ownable, to);
     }
     std::cout << to.name() << " receives everything " << from.name() << " held\n";
+
+    if (fees > 0) {
+        std::cout << to.name() << " owes " << fees
+                  << " Reagents on the mortgaged districts received\n";
+        // Through payTreasury so an unaffordable total becomes a debt rather
+        // than a negative balance.
+        payTreasury(to, fees);
+    }
 }
 
 bool Game::guildIsUnimproved(Guild guild) const {
@@ -258,7 +286,9 @@ void Game::releaseToMarket(Player &from) {
 }
 
 void Game::declareInsolvency() {
-    if (!hasPendingDebt()) {
+    // Guarded on the current Artificer so a debt parked against someone else
+    // cannot be declared away on their behalf.
+    if (!hasPendingDebt() || debtor_ != &currentPlayer()) {
         std::cout << "you may only declare insolvency when you owe more than you hold\n";
         return;
     }
@@ -273,6 +303,8 @@ void Game::declareInsolvency() {
     debtor_ = nullptr;
     creditor_ = nullptr;
     debtAmount_ = 0;
+    // Any half-finished Lockup exit dies with the Artificer who owed it.
+    lockupFinePending_ = false;
     debtor.declareInsolvent();
 
     if (creditor != nullptr) {
@@ -528,6 +560,30 @@ bool Game::offerTrade(const std::string &targetName, const std::string &give,
         }
     }
 
+    // Both sides must be able to cover the 10% due on any mortgaged district
+    // they are about to receive. Refusing here is better than completing a
+    // trade that drives someone negative: a trade is voluntary, so an
+    // unaffordable one should simply not happen.
+    const int feeOnGiven =
+        offer.giveDistrict != nullptr ? mortgageTransferFee(*offer.giveDistrict) : 0;
+    const int feeOnAsked =
+        offer.receiveDistrict != nullptr ? mortgageTransferFee(*offer.receiveDistrict) : 0;
+
+    const int fromAfter =
+        from.reagents() - offer.giveReagents + offer.receiveReagents - feeOnAsked;
+    const int toAfter =
+        to->reagents() + offer.giveReagents - offer.receiveReagents - feeOnGiven;
+    if (fromAfter < 0) {
+        std::cout << from.name() << " could not cover the " << feeOnAsked
+                  << "-Reagent charge on the mortgaged district\n";
+        return false;
+    }
+    if (toAfter < 0) {
+        std::cout << to->name() << " could not cover the " << feeOnGiven
+                  << "-Reagent charge on the mortgaged district\n";
+        return false;
+    }
+
     offer.active = true;
     offer_ = offer;
     turn_->enterTradeResponse();
@@ -546,15 +602,29 @@ void Game::acceptTrade() {
     const TradeOffer offer = offer_;
     offer_ = TradeOffer{};
 
+    // offerTrade already proved both sides can cover any mortgage charge, so
+    // these are charged directly rather than parked as debts.
     if (offer.giveDistrict != nullptr) {
-        transferDistrict(*offer.giveDistrict, *offer.to);
+        const int fee = transferDistrict(*offer.giveDistrict, *offer.to);
+        if (fee > 0) {
+            offer.to->addReagents(-fee);
+            treasury_ += fee;
+            std::cout << offer.to->name() << " pays " << fee << " Reagents on the mortgaged "
+                      << offer.giveDistrict->name() << '\n';
+        }
     } else {
         offer.from->addReagents(-offer.giveReagents);
         offer.to->addReagents(offer.giveReagents);
     }
 
     if (offer.receiveDistrict != nullptr) {
-        transferDistrict(*offer.receiveDistrict, *offer.from);
+        const int fee = transferDistrict(*offer.receiveDistrict, *offer.from);
+        if (fee > 0) {
+            offer.from->addReagents(-fee);
+            treasury_ += fee;
+            std::cout << offer.from->name() << " pays " << fee << " Reagents on the mortgaged "
+                      << offer.receiveDistrict->name() << '\n';
+        }
     } else {
         offer.to->addReagents(-offer.receiveReagents);
         offer.from->addReagents(offer.receiveReagents);

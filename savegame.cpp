@@ -191,6 +191,13 @@ bool SaveGame::load(Game &game, const std::string &filename, std::string &error)
                     ", which is outside -1 to " + std::to_string(ceiling);
             return false;
         }
+        // Owner and upgrades are not independent. Mortgaging and upgrading are
+        // both owner actions, so a district held by the Guild must be plain.
+        if (record.owner == "GUILD" && record.upgrades != 0) {
+            error = record.name + " is unowned, so it cannot be " +
+                    (record.upgrades == kMortgagedMarker ? "mortgaged" : "upgraded");
+            return false;
+        }
         districts.push_back(record);
     }
 

@@ -149,6 +149,12 @@ private:
     Player *creditor_ = nullptr;
     int debtAmount_ = 0;
 
+    // When the compulsory Lockup fine cannot be paid it becomes a debt, and
+    // settling that debt must still finish the exit: release the Artificer and
+    // move them the total they rolled on the turn the fine fell due.
+    bool lockupFinePending_ = false;
+    int lockupFineMove_ = 0;
+
     // A district is either given or asked for; a null pointer on a side means
     // that side is Reagents instead.
     struct TradeOffer {
@@ -163,9 +169,11 @@ private:
     TradeOffer offer_;
 
     void settleDebtIfPossible();
-    // Hands a district over, charging the receiver 10% of the printed value
-    // when it is mortgaged. Shared by trades and insolvency transfers.
-    void transferDistrict(OwnableDistrict &district, Player &to);
+    // Hands a district over and *returns* the 10% fee due on a mortgaged one
+    // rather than charging it, so a caller moving several districts can settle
+    // them in one payment instead of parking several competing debts.
+    int transferDistrict(OwnableDistrict &district, Player &to);
+    static int mortgageTransferFee(const OwnableDistrict &district);
     void transferEverything(Player &from, Player &to);
     void releaseToMarket(Player &from);
     bool guildIsUnimproved(Guild guild) const;

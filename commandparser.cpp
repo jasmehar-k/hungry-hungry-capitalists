@@ -5,21 +5,45 @@
 #include "command.h"
 #include "game.h"
 
+namespace {
+
+// A die value must be a whole non-negative number and nothing else, so "4x"
+// and "abc" are both refused rather than half-read.
+bool parseDie(const std::string &text, int &out) {
+    std::istringstream parsed{text};
+    int value = 0;
+    if (!(parsed >> value) || value < 0) return false;
+    char trailing = 0;
+    if (parsed >> trailing) return false;
+    out = value;
+    return true;
+}
+
+}  // namespace
+
 std::unique_ptr<Command> CommandParser::parse(Game &game, const std::string &line) {
     std::istringstream input{line};
     std::string word;
     if (!(input >> word)) return nullptr;
 
     if (word == "roll") {
+        std::string first;
+        if (!(input >> first)) return std::make_unique<RollCommand>(game);
+
+        // Anything after "roll" is an attempt at explicit dice. Silently
+        // rolling at random instead would hide the user's mistake.
+        std::string second;
         int die1 = 0;
         int die2 = 0;
-        // Explicit dice are only honoured under -testing; the plain roll still
-        // works there, so a trailing pair is optional rather than required.
-        if (game.testingMode() && (input >> die1 >> die2)) {
-            if (die1 < 0 || die2 < 0) return nullptr;
-            return std::make_unique<RollCommand>(game, die1, die2);
+        if (!(input >> second) || !parseDie(first, die1) || !parseDie(second, die2)) {
+            return std::make_unique<MessageCommand>(
+                "roll takes either no arguments or two non-negative dice values");
         }
-        return std::make_unique<RollCommand>(game);
+        if (!game.testingMode()) {
+            return std::make_unique<MessageCommand>(
+                "explicit dice values need -testing; plain \"roll\" rolls normally");
+        }
+        return std::make_unique<RollCommand>(game, die1, die2);
     }
 
     if (word == "next") return std::make_unique<NextCommand>(game);

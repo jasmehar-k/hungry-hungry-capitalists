@@ -30,8 +30,8 @@ bool parseArguments(int argc, char *argv[], Options &opts) {
         std::string arg = argv[i];
         if (arg == "-load") {
             if (i + 1 >= argc) {
-                std::cerr << "-load needs a filename\n";
-                return false;
+                std::cerr << "-load needs a filename; starting a new game instead\n";
+                continue;
             }
             opts.loadFile = argv[++i];
         } else if (arg == "-testing") {
@@ -45,8 +45,9 @@ bool parseArguments(int argc, char *argv[], Options &opts) {
                 opts.seed = static_cast<unsigned>(std::stoul(arg));
                 opts.seedGiven = true;
             } catch (const std::exception &) {
-                std::cerr << "unrecognized argument: " << arg << "\n";
-                return false;
+                // Warn and carry on rather than refusing to start. A mistyped
+                // flag at the demo should not stop the game from running.
+                std::cerr << "ignoring unrecognized argument: " << arg << "\n";
             }
         }
     }

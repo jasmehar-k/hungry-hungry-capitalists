@@ -22,6 +22,18 @@ protected:
     Command() = default;
 };
 
+// Reports why an input was refused. Having a command carry the diagnostic
+// keeps console output in the Command layer instead of pushing it into the
+// parser, and lets a specific complaint replace a generic "I don't understand".
+class MessageCommand final : public Command {
+public:
+    explicit MessageCommand(std::string message) : message_{std::move(message)} {}
+    void execute() override;
+
+private:
+    std::string message_;
+};
+
 class RollCommand final : public Command {
 public:
     explicit RollCommand(Game &game) : game_{game} {}
