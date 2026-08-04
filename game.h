@@ -107,9 +107,8 @@ public:
     std::string prompt(const std::string &question) const;
 
     // Offers an unowned district to whoever landed on it; a decline, or an
-    // Artificer who cannot afford it, sends the district to auction.
+    // Artificer who cannot afford it, hands the district to an Auction.
     void offerPurchase(OwnableDistrict &district, Player &buyer);
-    void runAuction(OwnableDistrict &district);
 
     // A payment larger than the debtor holds is parked rather than driving the
     // balance negative: the spec gives them the choice of raising funds or

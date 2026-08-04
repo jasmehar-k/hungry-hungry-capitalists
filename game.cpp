@@ -7,6 +7,7 @@
 #include <sstream>
 #include <utility>
 
+#include "auction.h"
 #include "boarddata.h"
 #include "district.h"
 #include "player.h"
@@ -311,7 +312,8 @@ void Game::releaseToMarket(Player &from) {
         released.push_back(ownable);
     }
 
-    for (OwnableDistrict *district : released) runAuction(*district);
+    Auction auction{*this};
+    for (OwnableDistrict *district : released) auction.run(*district);
 }
 
 void Game::declareInsolvency() {
@@ -771,60 +773,7 @@ void Game::offerPurchase(OwnableDistrict &district, Player &buyer) {
         out_ << buyer.name() << " cannot afford " << district.name() << '\n';
     }
 
-    runAuction(district);
-}
-
-void Game::runAuction(OwnableDistrict &district) {
-    std::vector<Player *> active;
-    for (const auto &player : players_) {
-        if (!player->isInsolvent()) active.push_back(player.get());
-    }
-    if (active.size() < 2) return;
-
-    out_ << "the Guild auctions " << district.name() << '\n';
-    int highest = 0;
-    Player *leader = nullptr;
-    std::size_t index = 0;
-
-    while (active.size() > 1) {
-        Player *bidder = active[index];
-        // Worded as an instruction rather than a question: "raise or withdraw?"
-        // invites typing the word "raise", but a bare number is what is wanted.
-        std::ostringstream question;
-        question << bidder->name() << " holds " << bidder->reagents() << " - enter an amount "
-                 << "above " << highest << ", or \"withdraw\": ";
-        const std::string answer = prompt(question.str());
-
-        // A blank answer, including end of input, counts as withdrawing, so a
-        // closed stream can never leave the auction spinning.
-        if (answer == "withdraw" || answer == "w" || answer.empty()) {
-            out_ << bidder->name() << " withdraws\n";
-            active.erase(active.begin() + static_cast<std::ptrdiff_t>(index));
-            if (index >= active.size()) index = 0;
-            continue;
-        }
-
-        int bid = 0;
-        std::istringstream parsed{answer};
-        if (!(parsed >> bid) || bid <= highest || bid > bidder->reagents()) {
-            out_ << "type just the number: more than " << highest << " and no more than "
-                      << bidder->reagents() << ", or \"withdraw\"\n";
-            continue;  // the same Artificer tries again
-        }
-        highest = bid;
-        leader = bidder;
-        index = (index + 1) % active.size();
-    }
-
-    if (leader == nullptr) {
-        // Everyone withdrew without bidding, so nothing changes hands.
-        out_ << "no bids were made; " << district.name() << " stays with the Guild\n";
-        return;
-    }
-    leader->addReagents(-highest);
-    district.setOwner(leader);
-    out_ << leader->name() << " wins " << district.name() << " for " << highest
-              << " Reagents\n";
+    Auction{*this}.run(district);
 }
 
 int Game::totalFreePasses() const {
