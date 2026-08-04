@@ -71,10 +71,10 @@ void Game::movePlayer(Player &player, int steps) {
     const int to = Board::advance(from, steps);
     player.setPosition(to);
 
-    if (Board::passedGrandEntrance(from, steps)) {
-        player.addReagents(kGrandEntranceBonus);
+    if (const int laps = Board::grandEntrancePasses(from, steps); laps > 0) {
+        player.addReagents(kGrandEntranceBonus * laps);
         std::cout << player.name() << " passes the Grand Entrance and collects "
-                  << kGrandEntranceBonus << " Reagents\n";
+                  << (kGrandEntranceBonus * laps) << " Reagents\n";
     }
 
     std::cout << player.name() << " lands on " << board_.at(to).name() << '\n';
@@ -93,14 +93,14 @@ bool Game::forceLockupExit(Player &player) {
         std::cout << player.name() << " spends a Free-Pass Token to leave The Lockup\n";
         return true;
     }
-    if (player.reagents() >= kLockupFine) {
-        payTreasury(player, kLockupFine);
-        player.releaseFromLockup();
-        std::cout << player.name() << " pays the " << kLockupFine << "-Reagent fine\n";
-        return true;
-    }
-    std::cout << player.name() << " cannot pay the " << kLockupFine << "-Reagent fine\n";
-    return false;
+    // payTreasury parks a debt when the fine is unaffordable, which is what
+    // stops an Artificer who cannot pay from being detained forever: the debt
+    // blocks the turn until they raise funds or declare insolvency.
+    payTreasury(player, kLockupFine);
+    if (hasPendingDebt()) return false;
+
+    player.releaseFromLockup();
+    return true;
 }
 
 void Game::payTreasury(Player &player, int amount) {

@@ -25,6 +25,10 @@ public:
     TextView(Game &game, std::shared_ptr<ControllerInterface> controller);
     ~TextView() override;
 
+    // Registration is tied to this exact instance; a copy would deregister twice.
+    TextView(const TextView &) = delete;
+    TextView &operator=(const TextView &) = delete;
+
     void update() override;
     void render(std::ostream &out) const;
 

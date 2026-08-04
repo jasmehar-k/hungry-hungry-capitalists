@@ -30,10 +30,11 @@ int Board::advance(int from, int steps) {
     return raw < 0 ? raw + kBoardSize : raw;
 }
 
-bool Board::passedGrandEntrance(int from, int steps) {
+int Board::grandEntrancePasses(int from, int steps) {
     // Moving backward over Grand Entrance pays nothing, so a bare "did the
     // square index decrease" test would wrongly pay out on every backward move.
-    return steps > 0 && from + steps >= kBoardSize;
+    if (steps <= 0) return 0;
+    return (from + steps) / kBoardSize;
 }
 
 OwnableDistrict *Board::findOwnable(const std::string &name) {

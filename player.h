@@ -38,6 +38,11 @@ class Player {
 public:
     Player(std::string name, char token);
 
+    // An entity, not a value: districts hold Player* to record ownership, so
+    // copying one would silently split its identity.
+    Player(const Player &) = delete;
+    Player &operator=(const Player &) = delete;
+
     const std::string &name() const { return name_; }
     char token() const { return token_; }
 

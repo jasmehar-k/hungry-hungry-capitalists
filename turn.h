@@ -20,6 +20,10 @@ public:
     explicit Turn(Game &game);
     ~Turn();
 
+    // Its states hold Turn& back-references, so a copy would point at the original.
+    Turn(const Turn &) = delete;
+    Turn &operator=(const Turn &) = delete;
+
     // Actions, each delegated straight to the active state.
     void roll(int die1, int die2) { state_->roll(die1, die2); }
     void next() { state_->next(); }

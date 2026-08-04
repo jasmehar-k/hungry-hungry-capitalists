@@ -229,9 +229,13 @@ bool SaveGame::save(const Game &game, const std::string &filename) {
     std::ofstream out{filename};
     if (!out) return false;
 
-    out << game.playerCount() << "\n\n";
+    // Only solvent Artificers are written. The format has no field for
+    // insolvency, so writing an eliminated Artificer would resurrect them as a
+    // normal player with 0 Reagents the next time the file is loaded.
+    out << game.solventCount() << "\n\n";
     for (std::size_t i = 0; i < game.playerCount(); ++i) {
         const Player &player = game.player(i);
+        if (player.isInsolvent()) continue;
         out << player.name() << ' ' << player.token() << ' ' << player.freePasses() << ' '
             << player.reagents() << ' ' << player.position();
         if (player.position() == kLockupSquare) {

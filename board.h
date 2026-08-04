@@ -17,6 +17,10 @@ public:
     Board();
     ~Board();
 
+    // Owns its districts outright; copying would duplicate the circuit.
+    Board(const Board &) = delete;
+    Board &operator=(const Board &) = delete;
+
     static constexpr int size() { return kBoardSize; }
 
     const District &at(int square) const;
@@ -26,10 +30,14 @@ public:
     // Negative steps are supported: a Wandering Market can send an Artificer back.
     static int advance(int from, int steps);
 
-    // Whether a move earns the Grand Entrance bonus. This takes the step count
+    // How many times a move crosses Grand Entrance. This takes the step count
     // rather than the destination because the destination alone cannot tell a
-    // forward lap from a backward move, and only forward moves collect.
-    static bool passedGrandEntrance(int from, int steps);
+    // forward lap from a backward move, and only forward moves collect. Real
+    // dice never lap twice, but -testing accepts any non-negative values.
+    static int grandEntrancePasses(int from, int steps);
+    static bool passedGrandEntrance(int from, int steps) {
+        return grandEntrancePasses(from, steps) > 0;
+    }
 
     // Ownable district names are unique across the circuit, so this is the
     // lookup the save file and the district-naming commands need.

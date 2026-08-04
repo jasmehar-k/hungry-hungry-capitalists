@@ -27,6 +27,10 @@ public:
     explicit Game(bool testingMode, unsigned seed = 0);
     ~Game() override;
 
+    // The single Model instance; observers and districts hold pointers into it.
+    Game(const Game &) = delete;
+    Game &operator=(const Game &) = delete;
+
     Board &board() { return board_; }
     const Board &board() const { return board_; }
 
