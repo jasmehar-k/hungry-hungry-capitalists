@@ -6,5 +6,8 @@ resources/
 # build artifacts
 *.o
 *.d
+*.dSYM/
 arcanemarket
+tabletest
+gametest
 
