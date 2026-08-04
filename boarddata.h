@@ -20,6 +20,11 @@ inline constexpr int kGoToLockupSquare = 30;
 
 inline constexpr int kGrandEntranceBonus = 200;
 inline constexpr int kMaxUpgrades = 5;
+inline constexpr int kMaxConsecutiveDoubles = 3;
+inline constexpr int kLockupFine = 50;
+inline constexpr int kTransitTollFee = 150;
+inline constexpr int kGuildLevyFlat = 300;
+inline constexpr int kGuildLevyPercent = 10;
 
 enum class Guild { None, Ember, Smoke, Arcane, Gilded };
 

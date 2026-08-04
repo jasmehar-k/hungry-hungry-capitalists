@@ -10,6 +10,7 @@
 #include "district.h"
 #include "game.h"
 #include "player.h"
+#include "turn.h"
 
 namespace {
 
@@ -182,4 +183,18 @@ void TextView::render(std::ostream &out) const {
 
     renderFullRow(bottomSquare);
     out << border << '\n';
+
+    if (game_.playerCount() > 0) {
+        const Player &player = game_.currentPlayer();
+        out << player.name() << " (" << player.token() << ")  " << player.reagents()
+            << " Reagents  on " << board.at(player.position()).name() << "  ["
+            << game_.turn().stateName() << ']';
+        if (player.inLockup()) {
+            out << "  detained, " << player.lockupTurns() << " turns served";
+        }
+        if (player.freePasses() > 0) {
+            out << "  Free-Pass x" << player.freePasses();
+        }
+        out << '\n';
+    }
 }

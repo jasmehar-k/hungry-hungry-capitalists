@@ -9,6 +9,7 @@
 #include "savegame.h"
 #include "setup.h"
 #include "textview.h"
+#include "turn.h"
 
 namespace {
 
@@ -53,10 +54,7 @@ int main(int argc, char *argv[]) {
     if (!parseArguments(argc, argv, opts)) return 1;
 
     // Seeded once at startup so that a given seed replays an identical game.
-    std::mt19937 rng{opts.seedGiven ? opts.seed : std::random_device{}()};
-    static_cast<void>(rng);
-
-    Game game{opts.testing};
+    Game game{opts.testing, opts.seedGiven ? opts.seed : std::random_device{}()};
 
     if (!opts.loadFile.empty()) {
         std::string error;
@@ -71,6 +69,8 @@ int main(int argc, char *argv[]) {
 
     // The view attaches only once the roster is settled: it observes the Game,
     // and attaching earlier would redraw the board once per Artificer added.
+    game.turn().beginTurn();
+
     auto controller = std::make_shared<GameController>(game);
     TextView view{game, controller};
     view.render(std::cout);
