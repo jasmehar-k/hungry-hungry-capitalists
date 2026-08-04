@@ -89,168 +89,232 @@ pointers are drawn as lines.
 
 ## 3. Design Patterns Used
 
-Six patterns are applied. Patterns considered and deliberately rejected are listed at the end,
-since rejecting one is also a design decision.
+Patterns are a vocabulary, not a checklist: the goal is not to use as many as possible, which
+produces overengineered code, but to recognise a recurring structural problem and apply the proven
+solution. The course's standard is that **a pattern is justified when you see the second
+occurrence of a problem; the first occurrence is just code.** Six patterns are applied below, each
+given as pattern name, where it is used, why it was chosen (with the alternatives rejected), and
+how it is implemented. Two are held to that standard and found wanting; §3.7 says so rather than
+claiming them.
+
+Throughout, the two metrics used to judge a decision are **coupling** — the degree of
+interdependence between modules, which the design should push down the ladder from content
+towards data coupling — and **cohesion**, the degree to which the elements inside a module belong
+together, where functional cohesion is the ideal and a "god class" of vaguely related code is the
+failure mode.
 
 ### 3.1 Model-View-Controller
+
+*Architectural compound pattern. Core problem: separate model, view, and controller concerns.
+Primary principles: SRP, OCP.*
 
 **Where it is used.** `Game` is the Model (`game.h`/`.cpp`); `TextView` is the View
 (`textview.h`/`.cpp`); `ControllerInterface` and `GameController` are the Controller
 (`controller.h`/`.cpp`). See Figure 2.
 
-**Why it was chosen.** Deliberately *not* because a graphical display might be added later — that
-would be speculative generality, and the enhancement was never built. The justification is that
-three genuinely distinct concerns already exist in this program today:
+**Why it was chosen.** Not because a graphical display might be added later — that would be
+premature abstraction, which is as harmful as premature optimization, and the enhancement was
+never built. The justification is the Single Responsibility Principle: MVC separates display
+logic from business logic from user input, and this program already contains all three as
+distinct **axes of variation**:
 
-1. **Board rendering is substantial and rule-free.** `textview.cpp` is 200 lines of grid geometry,
-   cell-width arithmetic, name wrapping and token placement. None of it encodes a game rule.
-2. **Input interpretation is a third thing again** — a parser plus thirteen command classes,
-   concerned with what the user typed, not with what the board looks like or what the rules say.
-3. **The rules themselves** must be exercisable without either of the above. This is realised, not
-   hypothetical: the test harnesses construct a `Game`, drive it and assert on its state with no
-   view attached at all — 78 checks run headless.
+1. **Rendering** — `textview.cpp` is 200 lines of grid geometry, cell-width arithmetic, name
+   wrapping and token placement. It changes when the display changes.
+2. **Interpretation** — a parser and thirteen command classes. It changes when the command
+   language changes.
+3. **Rules** — tolls, auctions, insolvency. It changes when the game rules change.
 
-Ordinary cohesion demands that split regardless of any future view; MVC is simply the course's
-named form of it.
+Collapsing them gives one class with three reasons to change, which is the definition of an SRP
+violation and produces exactly the low cohesion the course calls a god class. Kept apart, each
+has **functional cohesion**: every element contributes to one well-defined task. That the split
+is real and not nominal is demonstrated rather than asserted — the test harnesses construct a
+`Game`, drive it and assert on its state with no view attached at all, 78 checks running headless.
 
-*Alternatives rejected:* **one class holding rules and printing** — the 200 lines of layout would
-sit among the rules, and headless testing would be impossible; **Model and View with no
-Controller** — command parsing and legality would live inside the display class; **Controller
-mediating all data** — Chapter 17 states this "is not MVC" and adds coupling, since the View can
-query the Model directly.
+*Alternatives rejected:* **one class holding rules and rendering** — three reasons to change,
+god-class cohesion, and headless testing impossible; **Model and View with no Controller** —
+interpretation would migrate into the display class, coupling the command language to the
+rendering code; **Controller mediating all data**, with the View asking the Controller for state —
+Chapter 17 states this "is not MVC", and it adds a hop that raises coupling without raising
+cohesion, since the View can query the Model directly.
 
 **How it is implemented.** `Game` holds all state, extends `Subject`, and names no View.
 `TextView` holds a `Game&` and a `shared_ptr<ControllerInterface>`, registers as an Observer, and
 on notification re-queries the Model and redraws. Input reaches `TextView::handleInput`, which
 forwards to the Controller; `GameController` mutates the Model, then fires one notification for
-the whole command.
+the whole command. This is the standard composition the course names: *the Model is an observable
+subject; the View subscribes as an observer; the Controller mediates.*
 
-**An honest limitation.** The separation achieved is *board rendering* from rules, not *all
-output* from rules. `Game` still writes narration directly to `std::cout` — "Marco pays 26
-Reagents to Vera", the auction and Guild Levy prompts, and so on, 83 call sites in total. A
-stricter MVC would route those through the View. This was left as-is partly for time and partly
-because Chapter 16's own `GumballMachine` prints from the Model, but it is the weakest point of
-the separation and a fair thing to be challenged on.
+**An honest limitation.** What is separated is *rendering* from rules, not *all output* from
+rules. `Game` still writes narration straight to `std::cout` at 83 call sites — "Marco pays 26
+Reagents to Vera", the auction and Guild Levy prompts. Encapsulation says every public commitment
+constrains future change, and those `cout` calls are an undeclared commitment to a console: a
+graphical View could not reuse `Game` without them following it. A stricter MVC would route them
+through the View. This is the weakest point of the separation and the fair thing to be challenged
+on at the demo.
 
 ### 3.2 Observer
+
+*Behavioural. Core problem: one-to-many notification without tight coupling. Primary principles:
+OCP, SRP.*
 
 **Where it is used.** `Subject` and `Observer` in `observer.h`; `Game : Subject`;
 `TextView : Observer`. See Figure 2.
 
-**Why it was chosen — and where that reasoning is weak.** Unlike the separation above, Observer
-does **not** pay for itself in the program as submitted, and it would be dishonest to claim it
-does. There is exactly one Observer (`TextView`), exactly one Subject (`Game`), and
-`notifyObservers()` is invoked from exactly one place — `GameController::handleCommand` — where it
-iterates a one-element vector. Replacing the whole mechanism with a direct `view.render()` call at
-that same site would be behaviourally identical and strictly simpler. By a strict YAGNI reading
-this is over-built, and that is a fair criticism.
+**Why it was chosen — and why that choice is contestable.** The core problem Observer solves is
+*one-to-many* notification. This program has **one-to-one**: exactly one Observer, one Subject,
+and a single call site in `GameController::handleCommand` where `notifyObservers()` iterates a
+one-element vector. Measured against the course's own rule — a pattern is justified at the second
+occurrence of a problem, the first is just code — this is the first occurrence, and a direct
+`view.render()` call at that same site would be behaviourally identical and simpler. YAGNI names
+this failure mode precisely: an interface with unused implementations adds complexity without
+adding value. A reviewer applying that strictly would call it over-built and would be right on
+the principle.
 
-Three things are offered in its defence, none of which is present-day value:
+What is offered against that is narrower, and is optionality rather than present value:
 
-- The specification's own enhancement list names a graphical display. That makes a second view a
-  *documented* extension point rather than an invented one — YAGNI warns against needs you
-  imagine, and this one is written down. It remains optionality, not value.
-- Design Question 1 asks directly whether Observer suits the Circuit Board. Implementing it makes
-  that answer concrete and testable rather than hypothetical.
-- The cost is genuinely small: 45 lines in `observer.h`, one virtual call per command, no
-  allocation.
+- Observer is the pattern that replaces direct method calls with event notification, moving the
+  Model→View link down the coupling ladder. Because `Game` names no View, adding a second display
+  is an OCP extension — a new subclass of `Observer` — rather than a modification of tested Model
+  code, and the specification's own enhancement list names a graphical display, so this is a
+  documented extension point rather than an invented one.
+- The cost is 45 lines in `observer.h`, one virtual call per command, and no allocation.
 
-*Alternatives rejected:* **`Game` holding a `TextView*`** — this is the honest competitor, and its
-only real defect is that the Model would then name a concrete View; **the main loop polling
-`view.render()` unconditionally** — rejected because it puts the redraw decision outside both the
-Model and the Controller, though it too would work.
+*Alternatives rejected:* **`Game` holding a `TextView*` and calling `render()` directly** — the
+honest competitor; its only real defect is that a high-level module (the Model) would then depend
+on a low-level concrete detail, inverting DIP; **the main loop polling `view.render()`
+unconditionally** — workable, but it moves the redraw decision outside both Model and Controller.
 
 **How it is implemented.** `Subject` keeps a `vector<Observer*>` of non-owning pointers with
 `addObserver` (duplicate-checked via `std::find`), `removeObserver` (erase-remove) and
-`notifyObservers`. `TextView` registers in its constructor and deregisters in its destructor.
-Notification fires once per command rather than from every mutator, because the spec redraws the
-whole board per command — a change that was made after per-mutator notification printed the board
-six times during six-player setup.
+`notifyObservers`. `TextView` registers in its constructor and deregisters in its destructor —
+RAII applied to a registration rather than to memory. Notification fires once per command rather
+than per mutator, a change made after per-mutator notification printed six boards during
+six-player setup.
 
 ### 3.3 Template Method
 
-**Where it is used.** `OwnableDistrict::landOn` (declared `final`) with the pure virtual hook
+*Behavioural. Core problem: define the skeleton of an algorithm; let subclasses fill in steps.
+Primary principles: OCP, DRY.*
+
+**Where it is used.** `OwnableDistrict::landOn`, declared `final`, with the pure virtual hook
 `computeToll`, overridden by `Workshop`, `Forge` and `Depot`. See Figure 3.
 
-**Why it was chosen.** Every visit to an ownable district follows one fixed sequence — unowned so
-offer it; owned by the visitor so nothing; mortgaged so nothing; otherwise charge — but the amount
-is computed three different ways. *Alternatives rejected:* **a single `landOn` with a `switch` on
-`DistrictKind`** — adding a kind would edit that function, and the invariant sequence would sit
-interleaved with three pricing rules; **Strategy, injecting a `TollPolicy`** — the pricing rule is
-fixed by the district's type and never changes at runtime, so a swappable policy adds an
-allocation and indirection for flexibility the game never uses.
+**Why it was chosen.** Every visit to an ownable district follows one invariant sequence —
+unowned, so offer it; owned by the visitor, so nothing; mortgaged, so nothing; otherwise charge —
+while the amount is computed three genuinely different ways. This is the DRY problem the pattern
+exists for: extract the invariant skeleton of an algorithm into the base class and leave only the
+variant steps to subclasses. Written out three times, the sequence would have three authoritative
+representations, and a rule change would need three edits with one eventually missed.
 
-**How it is implemented.** `landOn` is `final` so no subclass can reorder or skip a step, and
-`computeToll` is a protected pure virtual — the single point of variation. `Workshop` indexes a
-six-entry table by upgrade level, doubling an unimproved toll when the Guild is complete; `Forge`
-indexes a levy table by Forges owned; `Depot` multiplies the dice total by 4, or 10 when one
-Artificer holds both.
+*Alternatives rejected:* **a single `landOn` with a `switch` on `DistrictKind`** — the canonical
+OCP violation, an if-else chain dispatching on a type tag; every new district kind edits that
+function, whereas with virtual dispatch the switch disappears because the vtable handles it;
+**Strategy, injecting a `TollPolicy` object** — Strategy and Template Method both isolate a
+varying step, but Strategy's intent is *external* algorithm selection, and here the pricing rule
+is fixed by the district's type and never selected at runtime. A hierarchy for something with
+exactly one policy per type adds indirection without adding value.
+
+**How it is implemented.** `landOn` is `final`, so no subclass can reorder or skip a step of the
+sequence — the invariant is enforced by the language, not by convention — and `computeToll` is a
+protected pure virtual, the single point of variation. `Workshop` indexes a six-entry toll table
+by upgrade level, doubling an unimproved toll when the Guild is complete; `Forge` indexes a levy
+table by Forges owned; `Depot` multiplies the dice total by 4, or 10 when one Artificer holds
+both.
 
 ### 3.4 State
 
-**Where it is used.** `Turn` is the Context (`turn.h`/`.cpp`); `TurnState` with `PreRollState`,
-`PostRollState`, `LockupState`, `AwaitingTradeResponseState` (`turnstate.h`/`.cpp`). Figures 4–5.
+*Behavioural. Core problem: an object changes behaviour when its internal state changes. Primary
+principles: OCP, SRP.*
 
-**Why it was chosen.** Which commands are legal depends on the turn phase: `roll` only when a roll
-is pending, `next` only when it is not, rolling in The Lockup runs an exit procedure instead of
-moving, and while a trade offer stands only `accept`/`reject` apply. *Alternatives rejected:* **an
-`enum` with `if`/`else` chains in each command** — Chapter 16's argument, that every new phase
-edits every command and the logic scatters; **a set of booleans** (`hasRolled`, `isDetained`,
-`awaitingTrade`) — they admit contradictory combinations no rule permits, and nothing enforces
-legal transitions.
+**Where it is used.** `Turn` is the Context (`turn.h`/`.cpp`); `TurnState` is the state interface,
+with `PreRollState`, `PostRollState`, `LockupState` and `AwaitingTradeResponseState`. Figures 4–5.
 
-**How it is implemented.** `Turn` owns all four states as `unique_ptr` members built once and
-selects the active one through a raw non-owning `state_` pointer, so a transition allocates
-nothing. Each state holds a `Turn&` and drives its own transitions via `setState`. `Turn` also
-records `resume_`, the phase a trade offer interrupted, because an offer may be made before *or*
-after rolling.
+**Why it was chosen.** Which commands are legal depends on the phase of the turn, and there are
+four phases with four different answers — the second, third and fourth occurrences of the problem,
+so the pattern is justified on the course's own criterion rather than on anticipation. `roll` is
+legal only when a roll is pending; `next` only when it is not; rolling in The Lockup runs an exit
+procedure instead of moving; while a trade offer stands only `accept`/`reject` apply.
+
+*Alternatives rejected:* **an `enum TurnPhase` with if-else chains in each command** — again the
+canonical OCP violation, dispatch on a type tag; every new phase edits every command, and the
+phase logic loses cohesion by scattering across the command classes; **a set of booleans**
+(`hasRolled`, `isDetained`, `awaitingTrade`) — worse still, because they admit contradictory
+combinations that no rule permits and nothing enforces which transitions are legal.
+
+**How it is implemented.** `Turn` owns all four states as `unique_ptr` members constructed once
+and selects the active one through a raw non-owning `state_` pointer, so a transition allocates
+nothing. Each concrete state holds a `Turn&` and drives its own transitions via `setState`. `Turn`
+also records `resume_`, the phase a trade offer interrupted, because an offer may be made before
+*or* after rolling. State and Strategy share this structure — a pointer to an interface that
+changes which code runs — and differ in intent: here the transitions are internal to the object,
+not selected by a client.
 
 ### 3.5 Command
 
-**Where it is used.** The `Command` interface and thirteen concrete commands (`RollCommand`,
-`NextCommand`, `MortgageCommand`, `UnmortgageCommand`, `UpgradeCommand`, `TradeCommand`,
-`AcceptCommand`, `RejectCommand`, `InsolventCommand`, `AssetsCommand`, `AllCommand`,
-`SaveCommand`, `MessageCommand`) in `command.h`/`.cpp`; `CommandParser`; `GameController` as
-Invoker; `Game` as Receiver. See Figures 1A and 6.
+*Behavioural. Core problem: encapsulate a request as an object so it can be stored, queued,
+logged, and undone. Primary principles: OCP, SRP.*
+
+**Where it is used.** The `Command` interface and thirteen concrete commands in
+`command.h`/`.cpp`; `CommandParser`; `GameController` as Invoker; `Game` as Receiver. Figures 1A
+and 6.
 
 **Why it was chosen.** Eleven spec commands with different arities, from bare `next` to
-`trade <name> <give> <receive>`, and misspellings must fail gracefully. *Alternatives rejected:*
-**an `if`/`else` chain on the verb in the controller** — mixes parsing with execution and grows
-without bound; **a `map<string, function<void(istream&)>>`** — arguments would be re-parsed inside
-each handler or captured untyped, whereas binding them as typed members at construction is what
-Chapter 20 prescribes and is what makes each request self-contained.
+`trade <name> <give> <receive>` — thirteen occurrences of one structural problem, so the pattern
+is well past the second-occurrence threshold. Encapsulating each request as an object separates
+*what was asked for* from *who asked* and *who performs it*, and the Invoker depends only on the
+abstraction, which is DIP at the point of dispatch.
 
-**How it is implemented.** Each command stores its receiver (`Game&`) and parsed arguments as data
-members, so it is complete before execution. `CommandParser::parse` builds the right command and
-returns `nullptr` for anything unrecognised — the graceful-failure path. `GameController` fires
-`execute()` through the interface. `undo()` is deliberately absent: Chapter 20 adds it only "when
-undo is required", and ArcaneMarket has none.
+*Alternatives rejected:* **an if-else chain on the verb inside the controller** — dispatch on a
+type tag once more, mixing interpretation with execution and giving the controller a second reason
+to change; **a `map<string, function<void(istream&)>>`** — the closest competitor, but arguments
+would be re-parsed inside each handler or captured untyped, so the request would not be a
+self-contained object and the invoker would be stamp-coupled to a stream it does not need.
+
+**How it is implemented.** Each concrete command stores its receiver (`Game&`) and its parsed
+arguments as data members, so the request is complete before it is executed. `CommandParser::parse`
+builds the right command and returns `nullptr` for anything unrecognised — the single path that
+satisfies the spec's requirement to handle misspelled commands gracefully. `GameController` fires
+`execute()` through the interface without knowing which command it holds. `undo()` is deliberately
+absent: the pattern's canonical form supports undo, but the spec requires none, and declaring an
+operation that all thirteen commands would stub out is exactly the unused interface surface that
+YAGNI and ISP both warn against.
 
 ### 3.6 Simple Factory
+
+*Creational idiom, not the GoF Factory Method. Primary principle: DIP.*
 
 **Where it is used.** `DistrictFactory::create` (`districtfactory.*`), called from `Board`'s
 constructor; the same idiom in `CommandParser::parse`. See Figure 7.
 
-**Why it was chosen.** `Board` must build 40 districts of twelve kinds without concrete class names
-spreading through the code. *Alternatives rejected:* **a `switch` inside `Board`'s constructor** —
-puts every concrete name into `Board` and mixes construction with circuit management; **GoF Factory
-Method with an abstract creator hierarchy** — Chapter 12 says Simple Factory suits "a small, fixed
-set of product types that you do not expect to grow", which the 40-square circuit is, and warns
-against reaching for factories when a constructor would do.
+**Why it was chosen.** `Board` must build 40 districts of twelve kinds without concrete class
+names spreading through it. Localising construction in one place keeps `Board` depending on the
+`District` abstraction rather than on the details, and gives `Board` a single reason to change.
+
+*Alternatives rejected:* **a `switch` inside `Board`'s constructor** — every concrete district
+name enters `Board`, mixing construction with circuit management and giving it a second axis of
+variation; **GoF Factory Method with an abstract creator hierarchy** — whose core problem is
+"subclasses decide which class to instantiate". There are no subclasses of the creator here and no
+prospect of any, so building the hierarchy would satisfy the pattern's shape without its purpose:
+a factory that can produce products no one has asked for.
 
 **How it is implemented.** One static `create` takes a `DistrictSpec` from the board table,
-switches on its `kind`, and returns `unique_ptr<District>`. It is the only place concrete district
-names appear. It is named the Simple Factory *idiom* rather than Factory Method because there is no
-creator hierarchy — precisely the structural difference between the two.
+switches on its `kind`, and returns `unique_ptr<District>`. The switch is not an OCP violation in
+the usual sense: it exists precisely so that it is the *only* place concrete names appear, which
+is the acknowledged cost of the idiom. It is named the Simple Factory idiom rather than Factory
+Method because there is no creator hierarchy — the structural difference between the two.
 
 ### 3.7 Patterns considered and deliberately not used
 
-- **Decorator** for upgrades — see Design Question 3.
-- **Iterator** for the circuit — the board is a `vector` indexed by square number and movement is
-  arithmetic modulo 40; a hand-written iterator would add notation without removing indirection.
-- **Strategy** as a separate claim — Chapter 17 describes the Controller as the View's Strategy and
-  `TextView` does hold a `shared_ptr<ControllerInterface>`, but only one concrete controller
-  exists, so nothing demonstrates swappability. Reported as part of MVC rather than claimed alone.
+- **Decorator** — core problem: add responsibilities to objects dynamically without subclassing.
+  Rejected for upgrades; the reasoning is Design Question 3.
+- **Iterator** — core problem: sequential access without exposing internal structure. The board is
+  a `vector` indexed directly by square number and movement is arithmetic modulo 40, so there is
+  no internal structure to hide and no traversal to abstract.
+- **Strategy** as a separate claim — Chapter 17 describes the Controller as the View's Strategy,
+  and `TextView` does hold a `shared_ptr<ControllerInterface>`. But there is exactly one concrete
+  controller, and YAGNI names this case explicitly: a Strategy hierarchy for a problem that has
+  exactly one strategy adds complexity without adding value. It is reported as part of MVC's
+  compound structure rather than claimed as a pattern in its own right.
 
 ---
 
@@ -261,31 +325,30 @@ creator hierarchy — precisely the structural difference between the two.
 > *After reading the Districts subsection of the specification, would the Observer Pattern be a
 > good pattern to use when implementing the Circuit Board? Why or why not?*
 
-Yes, and it is used — with a caveat worth stating plainly. **The Subject is `Game`**, the Model
-owning the board, the players and the turn; **the Observer is `TextView`**. Districts are
+Yes — with a caveat the course's own standard forces me to state. **The Subject is `Game`**, the
+Model owning the board, the players and the turn; **the Observer is `TextView`**. Districts are
 deliberately *not* Subjects: the spec redraws the **entire** board after every command, so
-per-district notification would add an observer list to all forty districts in order to trigger
-the same full redraw.
+per-district notification would give forty objects an observer list in order to trigger the same
+full redraw — cost without cohesion gained.
 
 **The triggering event is the completion of a command**, not an individual field write. This
 departs from Chapter 17, which notifies at the end of every mutating method. One command can move
 an Artificer, pay a toll, transfer a district and change the turn phase; notifying per mutation
-redrew the board four times for one command, and printed six boards during six-player setup.
+redrew the board four times for one command and printed six boards during six-player setup.
 Notification therefore fires once, from `GameController::handleCommand`.
 
-**Compared with direct method calls, Observer is not clearly better here.** There is one view, one
-Subject and one call site, so `notifyObservers()` iterates a single-element vector; a direct
-`view.render()` from that same place would be behaviourally identical and simpler. Arguing
-otherwise would mean arguing from a graphical display that was never built.
+**Whether direct method calls are better suited** is genuinely arguable here. Observer's core
+problem is *one-to-many* notification without tight coupling; this program has **one-to-one** —
+one Observer, one Subject, one call site iterating a one-element vector. A pattern is justified at
+the second occurrence of a problem, and this is the first, so a direct `view.render()` would be
+behaviourally identical and simpler. Claiming otherwise would be premature abstraction, which is
+as harmful as premature optimization.
 
-What Observer actually buys is narrower: the Model never names a concrete View. That is optionality
-against an extension the specification itself lists, not value realised today, and it costs 45
-lines. A reviewer applying YAGNI strictly would call it over-built, and I would dispute the
-conclusion rather than the reasoning.
-
-What is *not* arguable is the separation underneath it. Rendering the board is 200 lines of
-geometry containing no game rules, and the rules are exercised headless by the test harness. That
-split is justified whether or not the notification between the two goes through Observer.
+What Observer does buy is that the Model names no View, so a second display would be an OCP
+extension rather than a modification of tested code — optionality against an enhancement the spec
+itself lists, for 45 lines. What is *not* arguable is the SRP separation underneath: rendering is
+200 lines of geometry with no rule in it, and the rules are exercised headless by the test
+harness. That split stands whether or not the notification between them goes through Observer.
 
 ### Design Question 2 — Card-Deck Mechanics for Wandering Market and Enchantment Deck
 
