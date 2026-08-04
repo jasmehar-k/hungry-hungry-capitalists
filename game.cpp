@@ -284,6 +284,84 @@ bool Game::unmortgage(const std::string &districtName) {
     return true;
 }
 
+namespace {
+
+// Shared lookup for the two upgrade commands: everything both must reject
+// before the level itself is considered.
+Workshop *findUpgradableWorkshop(Board &board, Player &player, const std::string &name) {
+    OwnableDistrict *district = board.findOwnable(name);
+    if (district == nullptr) {
+        std::cout << "there is no ownable district called " << name << '\n';
+        return nullptr;
+    }
+    auto *workshop = dynamic_cast<Workshop *>(district);
+    if (workshop == nullptr) {
+        std::cout << district->name() << " is not a Workshop, so it takes no upgrades\n";
+        return nullptr;
+    }
+    if (workshop->owner() != &player) {
+        std::cout << workshop->name() << " is not yours\n";
+        return nullptr;
+    }
+    if (workshop->isMortgaged()) {
+        std::cout << workshop->name() << " is mortgaged\n";
+        return nullptr;
+    }
+    return workshop;
+}
+
+}  // namespace
+
+bool Game::buyUpgrade(const std::string &districtName) {
+    Player &player = currentPlayer();
+    Workshop *workshop = findUpgradableWorkshop(board_, player, districtName);
+    if (workshop == nullptr) return false;
+
+    if (!guildComplete(workshop->guild(), player)) {
+        std::cout << "you must own every Workshop in that Crafting Guild first\n";
+        return false;
+    }
+    if (workshop->upgradeCount() >= kMaxUpgrades) {
+        std::cout << workshop->name() << " already has a Master Atelier\n";
+        return false;
+    }
+
+    const int cost = workshop->upgradeCost();
+    if (player.reagents() < cost) {
+        std::cout << "an upgrade on " << workshop->name() << " costs " << cost
+                  << " Reagents\n";
+        return false;
+    }
+
+    player.addReagents(-cost);
+    treasury_ += cost;
+    workshop->setUpgrades(workshop->upgradeCount() + 1);
+    std::cout << player.name() << " upgrades " << workshop->name() << " to level "
+              << workshop->upgradeCount() << " for " << cost << " Reagents\n";
+    return true;
+}
+
+bool Game::sellUpgrade(const std::string &districtName) {
+    Player &player = currentPlayer();
+    Workshop *workshop = findUpgradableWorkshop(board_, player, districtName);
+    if (workshop == nullptr) return false;
+
+    if (workshop->upgradeCount() <= 0) {
+        std::cout << workshop->name() << " has no upgrades to sell\n";
+        return false;
+    }
+
+    const int refund = workshop->upgradeCost() / 2;
+    workshop->setUpgrades(workshop->upgradeCount() - 1);
+    player.addReagents(refund);
+    std::cout << player.name() << " sells an upgrade on " << workshop->name() << " for "
+              << refund << " Reagents, leaving level " << workshop->upgradeCount() << '\n';
+    // Selling upgrades is one of the ways the spec lets an Artificer raise
+    // funds against an outstanding debt.
+    settleDebtIfPossible();
+    return true;
+}
+
 std::size_t Game::solventCount() const {
     std::size_t total = 0;
     for (const auto &player : players_) {

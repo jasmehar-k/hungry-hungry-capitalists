@@ -27,6 +27,15 @@ std::unique_ptr<Command> CommandParser::parse(Game &game, const std::string &lin
     if (word == "assets") return std::make_unique<AssetsCommand>(game);
     if (word == "all") return std::make_unique<AllCommand>(game);
 
+    if (word == "upgrade") {
+        std::string district;
+        std::string action;
+        if (!(input >> district >> action)) return nullptr;
+        if (action == "buy") return std::make_unique<UpgradeCommand>(game, district, true);
+        if (action == "sell") return std::make_unique<UpgradeCommand>(game, district, false);
+        return nullptr;
+    }
+
     // The remaining commands each take one argument, and a missing argument is
     // as unrecognizable as a misspelled verb.
     std::string argument;

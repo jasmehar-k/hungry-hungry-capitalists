@@ -15,6 +15,14 @@ void MortgageCommand::execute() { game_.mortgage(district_); }
 
 void UnmortgageCommand::execute() { game_.unmortgage(district_); }
 
+void UpgradeCommand::execute() {
+    if (buying_) {
+        game_.buyUpgrade(district_);
+    } else {
+        game_.sellUpgrade(district_);
+    }
+}
+
 void InsolventCommand::execute() { game_.declareInsolvency(); }
 
 void AssetsCommand::execute() {

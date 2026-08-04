@@ -97,6 +97,11 @@ public:
     bool mortgage(const std::string &districtName);
     bool unmortgage(const std::string &districtName);
 
+    // Upgrades are Workshops only, and only in a Guild the Artificer owns
+    // outright. Selling one is a legitimate way to raise funds against a debt.
+    bool buyUpgrade(const std::string &districtName);
+    bool sellUpgrade(const std::string &districtName);
+
     std::size_t solventCount() const;
     const Player *winner() const;
     bool isOver() const { return winner() != nullptr; }

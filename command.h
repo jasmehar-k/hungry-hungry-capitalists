@@ -65,6 +65,18 @@ private:
     std::string district_;
 };
 
+class UpgradeCommand final : public Command {
+public:
+    UpgradeCommand(Game &game, std::string district, bool buying)
+        : game_{game}, district_{std::move(district)}, buying_{buying} {}
+    void execute() override;
+
+private:
+    Game &game_;
+    std::string district_;
+    bool buying_;
+};
+
 class InsolventCommand final : public Command {
 public:
     explicit InsolventCommand(Game &game) : game_{game} {}
