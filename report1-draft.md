@@ -349,32 +349,45 @@ occurrence to generalise from. An ordinary class with a clear responsibility is 
 > *After reading the Districts subsection of the specification, would the Observer Pattern be a
 > good pattern to use when implementing the Circuit Board? Why or why not?*
 
-**Not for the update requirements the spec states — and the code shows why.**
+My answer is that it is not a good fit for the way the Circuit Board actually has to be updated,
+even though I did implement it.
 
-Observer exists to announce *that state changed*, so a display cannot go stale. The spec asks for
-something different: the board is redrawn **after every command**, in full, unconditionally. That
-trigger is not a state change; it is a Controller-level event. The Model never learns that a
-command finished, so it cannot originate the signal — and it does not. `notifyObservers()` has one
-call site, `GameController::handleCommand`, and no `Game` mutator calls it. The Controller tells
-the Subject to tell the Observer.
+Observer solves the problem of telling other objects that something has changed, so that a display
+never shows stale data. That is a real problem when a display has to react to changes it cannot
+predict. The Circuit Board does not have that problem. The spec says the board is redrawn after
+every command, in full, every time. Nothing about the redraw depends on what changed, so there is
+nothing for the Model to announce. The event that actually matters is "a command has finished",
+and the Model has no way of knowing when that happens. The Controller does.
 
-**Used as the question implies**, the Subject would be `Game` and the Observer `TextView`.
-Districts as Subjects would be worse: forty observer lists all triggering the same full redraw.
-The triggering events would be the mutating operations themselves, as Chapter 17 does it — but a
-single `roll` moves an Artificer, pays a toll and advances the phase, so the board would repaint
-three times mid-command, showing intermediate states the spec never asks to display.
+This shows up clearly in my own code. `notifyObservers()` is called in exactly one place,
+`GameController::handleCommand`, and no method in `Game` calls it at all. So the Controller tells
+the Subject to notify, and the Subject notifies its one Observer. The Model is not reporting its
+own changes; it is relaying an event that came from somewhere else.
 
-**Direct method calls are better suited to these requirements.** A `view.render()` after
-`handleInput` is behaviourally identical, one hop shorter, and needs no Subject machinery.
+If Observer were used the way the question suggests, the Subject would be `Game`, since it owns
+the board, the players and the turn, and the Observer would be `TextView`. I considered making
+each `District` a Subject so a district could announce its own changes, but that would be worse
+here. Every redraw draws all forty squares anyway, so forty separate observer lists would just end
+up triggering the same full redraw. The notifications themselves would be triggered by the
+mutating operations inside `Game`, which is how Chapter 17 does it, and that does not fit this
+game either: a single `roll` can move an Artificer, charge a toll and change the turn phase, so
+notifying once per mutation would redraw the board three times in the middle of one command and
+show intermediate states the spec never asks to display.
 
-**Observer becomes the right answer when the requirements change**: several views to keep in step;
-partial repaint, where knowing *which* districts changed is what saves the work; or a Model mutated
-outside the command loop, such as a computer-controlled Artificer. None of these hold here.
+Direct method calls are better suited to these requirements. Calling `view.render()` from the main
+loop after each line of input would produce exactly the same output, with one less level of
+indirection and no Subject or Observer machinery to maintain.
 
-It is nonetheless implemented, wired as Chapter 17 describes, because MVC is the claimed
-architecture and Chapter 17 defines that compound as Observer plus Strategy. What pays for itself
-is the separation — the Model names no View, which is what lets `gametest` drive it headless — and
-that comes from the MVC split rather than from Observer specifically.
+Observer would become the better choice if the requirements were different. If there were more than
+one view, or if only the squares that changed were repainted, or if the Model could change outside
+the command loop (a computer-controlled Artificer, for example), then the Model really would need
+to announce its changes, and direct calls would not scale. None of those apply here.
+
+I still implemented it, wired the way Chapter 17 describes, because MVC is the architecture I
+claimed and Chapter 17 defines MVC as Observer plus Strategy. That is a reason about how the
+pattern is defined rather than about a need in this program. The part that does pay off is the
+separation around it: `Game` never names a view class, which is what lets my test harness
+construct a `Game` over string streams and run the rules with no view attached at all.
 
 ### Design Question 2 — Card-Deck Mechanics for Wandering Market and Enchantment Deck
 
