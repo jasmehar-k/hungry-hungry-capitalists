@@ -98,13 +98,26 @@ since rejecting one is also a design decision.
 (`textview.h`/`.cpp`); `ControllerInterface` and `GameController` are the Controller
 (`controller.h`/`.cpp`). See Figure 2.
 
-**Why it was chosen.** The spec requires the board redrawn after every command, a text display
-now, and lists a graphical display as an enhancement, so the rules must be expressed independently
-of how they are shown. *Alternatives rejected:* **one class holding rules and printing** — the
-rules could then only be tested by capturing stdout, and a second display would mean editing the
-rules; **Model and View with no Controller** — command parsing and legality would live inside the
-display class; **Controller mediating all data** — Chapter 17 states this "is not MVC" and adds
-coupling, since the View can query the Model directly.
+**Why it was chosen.** Deliberately *not* because a graphical display might be added later — that
+would be speculative generality, and the enhancement was never built. The justification is that
+three genuinely distinct concerns already exist in this program today:
+
+1. **Board rendering is substantial and rule-free.** `textview.cpp` is 200 lines of grid geometry,
+   cell-width arithmetic, name wrapping and token placement. None of it encodes a game rule.
+2. **Input interpretation is a third thing again** — a parser plus thirteen command classes,
+   concerned with what the user typed, not with what the board looks like or what the rules say.
+3. **The rules themselves** must be exercisable without either of the above. This is realised, not
+   hypothetical: the test harnesses construct a `Game`, drive it and assert on its state with no
+   view attached at all — 78 checks run headless.
+
+Ordinary cohesion demands that split regardless of any future view; MVC is simply the course's
+named form of it.
+
+*Alternatives rejected:* **one class holding rules and printing** — the 200 lines of layout would
+sit among the rules, and headless testing would be impossible; **Model and View with no
+Controller** — command parsing and legality would live inside the display class; **Controller
+mediating all data** — Chapter 17 states this "is not MVC" and adds coupling, since the View can
+query the Model directly.
 
 **How it is implemented.** `Game` holds all state, extends `Subject`, and names no View.
 `TextView` holds a `Game&` and a `shared_ptr<ControllerInterface>`, registers as an Observer, and
@@ -112,22 +125,47 @@ on notification re-queries the Model and redraws. Input reaches `TextView::handl
 forwards to the Controller; `GameController` mutates the Model, then fires one notification for
 the whole command.
 
+**An honest limitation.** The separation achieved is *board rendering* from rules, not *all
+output* from rules. `Game` still writes narration directly to `std::cout` — "Marco pays 26
+Reagents to Vera", the auction and Guild Levy prompts, and so on, 83 call sites in total. A
+stricter MVC would route those through the View. This was left as-is partly for time and partly
+because Chapter 16's own `GumballMachine` prints from the Model, but it is the weakest point of
+the separation and a fair thing to be challenged on.
+
 ### 3.2 Observer
 
 **Where it is used.** `Subject` and `Observer` in `observer.h`; `Game : Subject`;
 `TextView : Observer`. See Figure 2.
 
-**Why it was chosen.** The Model must trigger redraws without knowing what displays exist, so the
-graphical-display enhancement could be added without touching `Game`. *Alternatives rejected:*
-**`Game` holding a `TextView*`** — couples the Model to one concrete View, and a second view would
-require editing `Game`; **the main loop polling `view.render()`** — moves the "something changed"
-decision out of the Model, and a view attached later would never be driven.
+**Why it was chosen — and where that reasoning is weak.** Unlike the separation above, Observer
+does **not** pay for itself in the program as submitted, and it would be dishonest to claim it
+does. There is exactly one Observer (`TextView`), exactly one Subject (`Game`), and
+`notifyObservers()` is invoked from exactly one place — `GameController::handleCommand` — where it
+iterates a one-element vector. Replacing the whole mechanism with a direct `view.render()` call at
+that same site would be behaviourally identical and strictly simpler. By a strict YAGNI reading
+this is over-built, and that is a fair criticism.
+
+Three things are offered in its defence, none of which is present-day value:
+
+- The specification's own enhancement list names a graphical display. That makes a second view a
+  *documented* extension point rather than an invented one — YAGNI warns against needs you
+  imagine, and this one is written down. It remains optionality, not value.
+- Design Question 1 asks directly whether Observer suits the Circuit Board. Implementing it makes
+  that answer concrete and testable rather than hypothetical.
+- The cost is genuinely small: 45 lines in `observer.h`, one virtual call per command, no
+  allocation.
+
+*Alternatives rejected:* **`Game` holding a `TextView*`** — this is the honest competitor, and its
+only real defect is that the Model would then name a concrete View; **the main loop polling
+`view.render()` unconditionally** — rejected because it puts the redraw decision outside both the
+Model and the Controller, though it too would work.
 
 **How it is implemented.** `Subject` keeps a `vector<Observer*>` of non-owning pointers with
 `addObserver` (duplicate-checked via `std::find`), `removeObserver` (erase-remove) and
 `notifyObservers`. `TextView` registers in its constructor and deregisters in its destructor.
-Notification fires once per command from `GameController::handleCommand` rather than from every
-mutator, because the spec redraws the whole board per command.
+Notification fires once per command rather than from every mutator, because the spec redraws the
+whole board per command — a change that was made after per-mutator notification printed the board
+six times during six-player setup.
 
 ### 3.3 Template Method
 
@@ -235,12 +273,20 @@ method. One command can move an Artificer, pay a toll, transfer a district and c
 phase; notifying per mutation redrew the board four times for one command. Notification therefore
 fires once, from `GameController::handleCommand`.
 
-**Compared with direct method calls**, Observer is better suited here for one concrete reason:
-`Game` never names a View. A direct `TextView*` inside `Game` would work today, but the
-graphical-display enhancement would then require editing the Model, and two simultaneous views
-would be impossible. With Observer a second view attaches by registering itself and the Model is
-untouched. The cost is one indirection and a lifetime contract — `TextView` registers in its
-constructor and deregisters in its destructor — which is small against that benefit.
+**Compared with direct method calls, the honest answer is that Observer is not clearly better for
+this program as submitted.** There is one view, one subject, and one call site, so
+`notifyObservers()` iterates a single-element vector; a direct `view.render()` from the same place
+in the Controller would be behaviourally identical and simpler. Claiming Observer earns its keep
+here would be arguing from a graphical display that was never built, which is speculative
+generality rather than design.
+
+What Observer buys is narrower and worth stating precisely: the Model never names a concrete View.
+That is optionality against an extension the specification itself lists, not a benefit realised
+today, and it costs 45 lines. Whether that trade is right is genuinely arguable — a reviewer
+applying YAGNI strictly would call it over-built, and I would not dispute the reasoning, only the
+conclusion. What is *not* arguable is the separation underneath it: rendering the board is 200
+lines of geometry with no rules in it, and the rules are exercised headless by the test harness.
+That split is justified whether or not the notification between them goes through Observer.
 
 ### Design Question 2 — Card-Deck Mechanics for Wandering Market and Enchantment Deck
 
