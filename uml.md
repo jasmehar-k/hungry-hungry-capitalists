@@ -29,7 +29,7 @@ relationships, the per-pattern diagrams are fully decorated.
 
 ```mermaid
 classDiagram
-    direction LR
+    direction TB
 
     class Subject { <<abstract>> }
     class Observer { <<abstract>> }
@@ -96,13 +96,13 @@ classDiagram
 
     class District {
         <<abstract>>
-        +name() string {query}
-        +square() int {query}
-        +kind() DistrictKind {query}*
-        +guild() Guild {query}
-        +isOwnable() bool {query}
-        +upgradeCount() int {query}
-        +isMortgaged() bool {query}
+        +name() string const
+        +square() int const
+        +kind() DistrictKind const*
+        +guild() Guild const
+        +isOwnable() bool const
+        +upgradeCount() int const
+        +isMortgaged() bool const
         +landOn(Game&, Player&)*
         -square_ : int
         -name_ : string
@@ -110,29 +110,29 @@ classDiagram
     class OwnableDistrict {
         <<abstract>>
         +landOn(Game&, Player&) final
-        +owner() Player* {query}
+        +owner() Player* const
         +setOwner(Player*)
         +setMortgaged(bool)
-        +buyPrice() int {query}
-        #computeToll(Game&, Player&) int {query}*
+        +buyPrice() int const
+        #computeToll(Game&, Player&) int const*
         -owner_ : Player* [0..1]
         -mortgaged_ : bool
         -buyPrice_ : int
     }
     class Workshop {
-        +computeToll(Game&, Player&) int {query}
+        +computeToll(Game&, Player&) int const
         +setUpgrades(int)
-        +upgradeCost() int {query}
-        +tollAt(int) int {query}
+        +upgradeCost() int const
+        +tollAt(int) int const
         -guild_ : Guild
         -tolls_ : int[6]
         -upgrades_ : int
     }
     class Forge {
-        +computeToll(Game&, Player&) int {query}
+        +computeToll(Game&, Player&) int const
     }
     class Depot {
-        +computeToll(Game&, Player&) int {query}
+        +computeToll(Game&, Player&) int const
     }
     class GuildLevy {
         +landOn(Game&, Player&)
@@ -178,12 +178,12 @@ classDiagram
         +next()
         +beginTurn()
         +setState(TurnState*)
-        +preRollState() TurnState* {query}
-        +postRollState() TurnState* {query}
-        +lockupState() TurnState* {query}
+        +preRollState() TurnState* const
+        +postRollState() TurnState* const
+        +lockupState() TurnState* const
         +enterTradeResponse()
         +resumeAfterTrade()
-        +consecutiveDoubles() int {query}
+        +consecutiveDoubles() int const
         -game_ : Game&
         -state_ : TurnState* [1]
         -resume_ : TurnState* [0..1]
@@ -193,7 +193,7 @@ classDiagram
         <<abstract>>
         +roll(int, int)*
         +next()*
-        +name() string_view {query}*
+        +name() string_view const*
     }
     class PreRollState {
         +roll(int, int)
@@ -259,7 +259,7 @@ classDiagram
         +execute()*
     }
     class CommandParser {
-        +parse(Game&, string) unique_ptr~Command~$
+        +parse(Game&, string) Command*$
     }
     class GameController {
         +handleCommand(string)
@@ -330,7 +330,7 @@ classDiagram
         +addObserver(Observer*)
         +removeObserver(Observer*)
         +notifyObservers()
-        -observers_ : Observer*[*]
+        -observers_ : Observer* [*]
     }
     class Observer {
         <<abstract>>
@@ -343,16 +343,16 @@ classDiagram
         +runAuction(OwnableDistrict&)
         +offerTrade(string, string, string)
         +declareInsolvency()
-        +owes(Player&) bool {query}
-        +winner() Player* {query}
+        +owes(Player&) bool const
+        +winner() Player* const
         -current_ : size_t
         -treasury_ : int
-        -debts_ : map~Player*, Debt~
+        -debts_ : map of Player to Debt
     }
     class TextView {
         <<View>>
         +update()
-        +render(ostream&) {query}
+        +render(ostream&) void const
         +handleInput(string)
         -game_ : Game&
         -controller_ : ControllerInterface [1]
