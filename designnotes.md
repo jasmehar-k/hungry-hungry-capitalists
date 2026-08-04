@@ -12,8 +12,18 @@ What is claimed, and how strongly. Phase 2 peer review classifies each claimed p
 | Observer | `observer.h`, `Game : Subject`, `TextView : Observer` | Realized. `Game` notifies at the end of every mutator and never references a View. |
 | Template Method | `OwnableDistrict::landOn` (`final`) with `computeToll()` hook | Structure realized; the hook bodies fill in with the movement step. |
 | Simple Factory | `DistrictFactory::create` | Used, and **named as the Simple Factory idiom, not GoF Factory Method**. See below. |
+| State | `Turn` (Context) + `PreRollState` / `PostRollState` / `LockupState` | Realized. Ch 16's shape: the Context owns every state as a `unique_ptr` built once and swaps a raw `state_` pointer. |
+| Command | `Command` + 8 concrete commands, `GameController` as Invoker | Realized. Arguments bound at construction, per Ch 20. |
 | Decorator | — | **Deliberately rejected.** See Design Question 3. |
-| State, Command, Iterator | planned | Not yet written; do not claim until they exist. |
+| Iterator | planned | Not yet written; do not claim until it exists. |
+
+### Why Command carries no undo()
+
+Ch 20 says the interface declares `execute()` "and, **when undo is required**, its inverse, `undo()`." ArcaneMarket has no undo requirement anywhere in the spec, so `Command` declares `execute()` alone. Adding an `undo()` that every one of the eight commands stubs out would be the textbook "merely named" pattern — the interface would claim a capability the program does not have.
+
+### Why the State machine has three states, not four
+
+`AwaitingTradeResponseState` is the natural fourth phase and is written up in the plan, but trading is spec priority 8 and is not implemented. An unreachable state class would pad the pattern without implementing it — the compiler actually caught this, warning that the state's `Turn&` member was unused. The class was removed with a comment marking where it belongs.
 
 ### Why Factory Method is not claimed
 
@@ -47,6 +57,15 @@ The caveat worth stating in the report: the spec redraws the **entire** board af
 ## Design Question 2 — card-deck mechanics
 
 Not yet implemented. The spec's Wandering Market and Enchantment Deck are probability tables; a real shuffled deck is a listed bonus feature. Intended answer: each card becomes a **Command** object encapsulating its effect, and the deck is a collection traversed by an **Iterator** that reshuffles on exhaustion. Both patterns have chapters in `resources/`. Do not claim either until written.
+
+## Deliberate deviations, with reasons
+
+Each of these is a judgement call worth defending in the report rather than hiding.
+
+- **Observer fires at the command boundary, not inside every mutator.** Ch 17 says the Model should call `notifyObservers()` at the end of every mutating method. Here one command can move an Artificer, pay a toll, transfer a district and change the turn state, and the spec redraws the *whole* board after every command — so per-mutator notification would redraw four times for one command. `GameController` notifies once when the command finishes, which is the real unit of change. This also fixes the setup problem found in the previous chunk, where six `addPlayer` calls printed six boards.
+- **The Model prints.** `Game` and the states write directly to `std::cout` rather than routing messages through the View. Strictly this leaks presentation into the Model, but both course examples do the same — Ch 16's `GumballMachine` and its states print directly. Routing every message through the View would have been cleaner MVC; the trade-off was made for time and consistency with the chapters.
+- **An auction where nobody bids makes no sale.** The spec says "when only one Artificer has not withdrawn, they win and must pay their final bid." If every other Artificer withdraws before any bid is made, the survivor's "final bid" does not exist. Rather than hand over a district for nothing, the district stays with the Guild. The spec is genuinely ambiguous here and this is the conservative reading.
+- **A debt is parked, not applied.** When a payment exceeds what the debtor holds, the balance is not driven negative. The debt is recorded and no turn may end until it is settled or insolvency is declared, which is exactly the choice the spec describes.
 
 ## Correctness notes worth reporting under "Challenges"
 
