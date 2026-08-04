@@ -75,6 +75,22 @@ public:
     void offerPurchase(OwnableDistrict &district, Player &buyer);
     void runAuction(OwnableDistrict &district);
 
+    // A payment larger than the debtor holds is parked rather than driving the
+    // balance negative: the spec gives them the choice of raising funds or
+    // declaring insolvency, and no turn may end while a debt is outstanding.
+    bool hasPendingDebt() const { return debtAmount_ > 0; }
+    void declareInsolvency();
+
+    bool mortgage(const std::string &districtName);
+    bool unmortgage(const std::string &districtName);
+
+    std::size_t solventCount() const;
+    const Player *winner() const;
+    bool isOver() const { return winner() != nullptr; }
+
+    void printAssets(const Player &player) const;
+    void printAllAssets() const;
+
 private:
     Board board_;
     std::vector<std::unique_ptr<Player>> players_;
@@ -84,6 +100,15 @@ private:
     std::mt19937 rng_;   // declared before dice_, which holds a reference to it
     Dice dice_;
     std::unique_ptr<Turn> turn_;
+
+    // The outstanding debt, if any. A null creditor means the Guild Treasury.
+    Player *debtor_ = nullptr;
+    Player *creditor_ = nullptr;
+    int debtAmount_ = 0;
+
+    void settleDebtIfPossible();
+    void transferEverything(Player &from, Player &to);
+    void releaseToMarket(Player &from);
 };
 
 #endif  // GAME_H

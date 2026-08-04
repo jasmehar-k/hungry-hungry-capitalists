@@ -1,6 +1,9 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
+#include <string>
+#include <utility>
+
 class Game;
 
 // Ch 20 declares the Command interface as execute() "and, when undo is
@@ -38,6 +41,66 @@ public:
 
 private:
     Game &game_;
+};
+
+class MortgageCommand final : public Command {
+public:
+    MortgageCommand(Game &game, std::string district)
+        : game_{game}, district_{std::move(district)} {}
+    void execute() override;
+
+private:
+    Game &game_;
+    std::string district_;
+};
+
+class UnmortgageCommand final : public Command {
+public:
+    UnmortgageCommand(Game &game, std::string district)
+        : game_{game}, district_{std::move(district)} {}
+    void execute() override;
+
+private:
+    Game &game_;
+    std::string district_;
+};
+
+class InsolventCommand final : public Command {
+public:
+    explicit InsolventCommand(Game &game) : game_{game} {}
+    void execute() override;
+
+private:
+    Game &game_;
+};
+
+class AssetsCommand final : public Command {
+public:
+    explicit AssetsCommand(Game &game) : game_{game} {}
+    void execute() override;
+
+private:
+    Game &game_;
+};
+
+class AllCommand final : public Command {
+public:
+    explicit AllCommand(Game &game) : game_{game} {}
+    void execute() override;
+
+private:
+    Game &game_;
+};
+
+class SaveCommand final : public Command {
+public:
+    SaveCommand(Game &game, std::string filename)
+        : game_{game}, filename_{std::move(filename)} {}
+    void execute() override;
+
+private:
+    Game &game_;
+    std::string filename_;
 };
 
 #endif  // COMMAND_H

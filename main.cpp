@@ -6,6 +6,7 @@
 
 #include "controller.h"
 #include "game.h"
+#include "player.h"
 #include "savegame.h"
 #include "setup.h"
 #include "textview.h"
@@ -76,7 +77,11 @@ int main(int argc, char *argv[]) {
     view.render(std::cout);
 
     std::string line;
-    while (std::getline(std::cin, line)) {
+    while (!game.isOver() && std::getline(std::cin, line)) {
         view.handleInput(line);
+    }
+
+    if (const Player *champion = game.winner()) {
+        std::cout << champion->name() << " wins ArcaneMarket\n";
     }
 }
