@@ -19,35 +19,38 @@
 
 ## 2. UML Class Diagram
 
-Source in `uml.md`, rendered images in `diagrams/uml-1.png` … `uml-7.png`.
+Source in `uml.md`, rendered images in `diagrams/uml-1.png` … `uml-8.png`.
 
-| Figure | Pattern demonstrated |
+| Figure | Subject |
 |---|---|
-| `uml-1.png` | MVC + Observer |
-| `uml-2.png` | Template Method |
-| `uml-3.png` | State — `Turn` and its four phases |
-| `uml-4.png` | State — phase transitions (state diagram) |
-| `uml-5.png` | Command |
-| `uml-6.png` | Simple Factory |
-| `uml-7.png` | Structural context — how the patterns compose |
+| `uml-1.png` | **Master class diagram** — every class, names and relationships only |
+| `uml-2.png` | District hierarchy and Template Method |
+| `uml-3.png` | MVC + Observer |
+| `uml-4.png` | State — `Turn` and its four phases |
+| `uml-5.png` | State — phase transitions (state diagram) |
+| `uml-6.png` | Command — all thirteen commands |
+| `uml-7.png` | Simple Factory |
+| `uml-8.png` | Model internals — the economy, debt ledger and trade offer |
 
-**Level of abstraction: the minimal detail needed to demonstrate each pattern's
-uniqueness.** The diagrams are organised by pattern rather than by file, and each box
-carries only the members that make its pattern identifiable — the roles, the polymorphic
-hook, and the data that distinguishes the pattern from a plain class. Members that exist
-in the code but say nothing about the pattern are omitted. This mirrors how the course
-chapters draw their own figures: Chapter 20's `Light` receiver shows only `setLevel` and
-`level`, not everything a `Light` can do.
+The set is organised as **one master diagram plus detailed diagrams per pattern or
+logical grouping**.
 
-Concretely, that means `Workshop` appears in the Template Method figure with nothing but
-`computeToll`, because the overriding hook *is* its role in that pattern; its upgrade
-level and toll table appear nowhere, because they demonstrate nothing about Template
-Method. Conversely `RollCommand` shows its private `game_`, `die1_` and `die2_`, because
-a command binding its receiver and arguments at construction is precisely what Chapter 20
-identifies as the pattern's distinguishing feature.
+Figure 1 answers "what exists and what talks to what". It carries every class in the
+program and no members at all, because at that level of abstraction the relationships are
+the entire content.
 
-Where a compartment is empty it is a deliberate statement that no member of that kind is
-relevant to the pattern, not an omission.
+Figures 2–8 each take one pattern or one logical grouping and show it **completely**: all
+thirteen districts in the hierarchy figure, all thirteen commands in the Command figure,
+every member of `Game` that carries game state in the Model figure. Detail is chosen by
+what the figure is about, not trimmed to fit — the members shown for a class differ
+between figures precisely because the level of abstraction differs. `Workshop` carries its
+toll table in the district figure, where the data matters; `RollCommand` carries its bound
+`game_`, `die1_` and `die2_` in the Command figure, because binding receiver and arguments
+at construction is what Chapter 20 identifies as the pattern's distinguishing feature.
+
+Following Chapter 8, method **parameters are not associations**: `landOn(Game&, Player&)`
+passes references at call time, which the chapter explicitly excludes. Only stored
+references and pointers are drawn as lines.
 
 Notation follows Chapter 8: `+ - #` for visibility, *italics* for pure virtual, underline
 for static, `const` marking query operations, hollow triangle for generalization, filled
