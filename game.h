@@ -2,6 +2,7 @@
 #define GAME_H
 
 #include <cstddef>
+#include <iosfwd>
 #include <map>
 #include <memory>
 #include <random>
@@ -24,12 +25,17 @@ class Turn;
 // pay a toll and change the turn state, so per-mutation notification would
 // redraw several times for a single command. GameController notifies once when
 // the command finishes, which is the real unit of change here.
+//
+// The streams are injected rather than being std::cin/std::cout: the Model
+// reports events and asks its spec-mandated mid-turn questions through
+// whatever streams main wires in, and never names the console itself.
 class Game final : public Subject {
 public:
     // shuffledDeck selects the optional enhancement: Enchantment effects come
     // from a real deck rather than the spec's probability table. It is chosen
     // at startup so the game plays either way without recompiling.
-    explicit Game(bool testingMode, unsigned seed = 0, bool shuffledDeck = false);
+    Game(bool testingMode, unsigned seed, bool shuffledDeck, std::istream &in,
+         std::ostream &out);
     ~Game() override;
 
     // The single Model instance; observers and districts hold pointers into it.
@@ -95,6 +101,8 @@ public:
     // squares call this, so the cap cannot drift between them.
     bool tryGrantFreePass(Player &player);
 
+    // Where the Model reports its events; main decides what stream that is.
+    std::ostream &out() const { return out_; }
     // Asks the user a question during a landing that requires a decision.
     std::string prompt(const std::string &question) const;
 
@@ -143,6 +151,8 @@ private:
     std::vector<std::unique_ptr<Player>> players_;
     std::size_t current_ = 0;
     bool testingMode_;
+    std::istream &in_;
+    std::ostream &out_;
     int treasury_ = 0;
     std::mt19937 rng_;   // declared before dice_, which holds a reference to it
     Dice dice_;

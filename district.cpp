@@ -1,6 +1,6 @@
 #include "district.h"
 
-#include <iostream>
+#include <ostream>
 #include <utility>
 
 #include "game.h"
@@ -25,7 +25,7 @@ void OwnableDistrict::landOn(Game &game, Player &visitor) {
     }
     if (owner_ == &visitor) return;  // an Artificer never tolls themselves
     if (mortgaged_) {
-        std::cout << name() << " is mortgaged, so no Toll Fee is due\n";
+        game.out() << name() << " is mortgaged, so no Toll Fee is due\n";
         return;
     }
 

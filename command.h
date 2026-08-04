@@ -1,6 +1,7 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
+#include <iosfwd>
 #include <string>
 #include <utility>
 
@@ -27,10 +28,12 @@ protected:
 // parser, and lets a specific complaint replace a generic "I don't understand".
 class MessageCommand final : public Command {
 public:
-    explicit MessageCommand(std::string message) : message_{std::move(message)} {}
+    MessageCommand(std::ostream &out, std::string message)
+        : out_{out}, message_{std::move(message)} {}
     void execute() override;
 
 private:
+    std::ostream &out_;
     std::string message_;
 };
 

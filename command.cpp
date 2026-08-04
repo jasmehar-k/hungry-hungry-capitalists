@@ -1,13 +1,13 @@
 #include "command.h"
 
-#include <iostream>
+#include <ostream>
 
 #include "game.h"
 #include "player.h"
 #include "savegame.h"
 #include "turn.h"
 
-void MessageCommand::execute() { std::cout << message_ << '\n'; }
+void MessageCommand::execute() { out_ << message_ << '\n'; }
 
 void RollCommand::execute() { game_.turn().roll(die1_, die2_); }
 
@@ -43,8 +43,8 @@ void AllCommand::execute() { game_.printAllAssets(); }
 
 void SaveCommand::execute() {
     if (SaveGame::save(game_, filename_)) {
-        std::cout << "saved to " << filename_ << '\n';
+        game_.out() << "saved to " << filename_ << '\n';
     } else {
-        std::cout << "could not write " << filename_ << '\n';
+        game_.out() << "could not write " << filename_ << '\n';
     }
 }

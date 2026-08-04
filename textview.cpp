@@ -1,6 +1,6 @@
 #include "textview.h"
 
-#include <iostream>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -105,14 +105,15 @@ std::vector<std::string> interiorLines() {
 
 }  // namespace
 
-TextView::TextView(Game &game, std::shared_ptr<ControllerInterface> controller)
-    : game_{game}, controller_{std::move(controller)} {
+TextView::TextView(Game &game, std::shared_ptr<ControllerInterface> controller,
+                   std::ostream &out)
+    : game_{game}, controller_{std::move(controller)}, out_{out} {
     game_.addObserver(this);
 }
 
 TextView::~TextView() { game_.removeObserver(this); }
 
-void TextView::update() { render(std::cout); }
+void TextView::update() { render(out_); }
 
 void TextView::handleInput(const std::string &line) {
     if (controller_) controller_->handleCommand(line);

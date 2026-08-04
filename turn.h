@@ -1,6 +1,7 @@
 #ifndef TURN_H
 #define TURN_H
 
+#include <iosfwd>
 #include <memory>
 #include <string_view>
 
@@ -44,6 +45,11 @@ public:
     void resumeAfterTrade();
 
     Game &game() { return game_; }
+
+    // Forwarders so a state talks to its Context alone rather than reaching
+    // through it (Law of Demeter): the summary chapter's a.getB().getC() shape.
+    std::ostream &out();
+    void endTurn();
 
     int consecutiveDoubles() const { return consecutiveDoubles_; }
     void countDouble() { ++consecutiveDoubles_; }

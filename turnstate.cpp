@@ -1,6 +1,6 @@
 #include "turnstate.h"
 
-#include <iostream>
+#include <ostream>
 
 #include "boarddata.h"
 #include "dice.h"
@@ -21,8 +21,8 @@ void applyRoll(Game &game, int die1, int die2) {
 
 void announceRoll(const Game &game) {
     const Dice &dice = game.dice();
-    std::cout << game.currentPlayer().name() << " rolls " << dice.first() << " and "
-              << dice.second() << " (" << dice.total() << ")\n";
+    game.out() << game.currentPlayer().name() << " rolls " << dice.first() << " and "
+               << dice.second() << " (" << dice.total() << ")\n";
 }
 
 // The spec resolves a shortfall on the spot: raise funds or declare
@@ -30,8 +30,8 @@ void announceRoll(const Game &game) {
 // what stops one Artificer from stacking up two separate obligations.
 bool blockedByDebt(Game &game, const Player &player) {
     if (!game.owes(player)) return false;
-    std::cout << "settle your debt of " << game.amountOwed(player)
-              << " Reagents or declare insolvency before rolling\n";
+    game.out() << "settle your debt of " << game.amountOwed(player)
+               << " Reagents or declare insolvency before rolling\n";
     return true;
 }
 
@@ -51,7 +51,7 @@ void PreRollState::roll(int die1, int die2) {
         turn_.countDouble();
         if (turn_.consecutiveDoubles() >= kMaxConsecutiveDoubles) {
             // The third total is deliberately not moved.
-            std::cout << "three doubles in a row: " << player.name() << " goes to The Lockup\n";
+            game.out() << "three doubles in a row: " << player.name() << " goes to The Lockup\n";
             game.sendToLockup(player);
             turn_.resetDoubles();
             turn_.setState(turn_.postRollState());
@@ -72,11 +72,11 @@ void PreRollState::roll(int die1, int die2) {
     turn_.setState(dice.isDoubles() ? turn_.preRollState() : turn_.postRollState());
 }
 
-void PreRollState::next() { std::cout << "you still have a roll pending\n"; }
+void PreRollState::next() { turn_.out() << "you still have a roll pending\n"; }
 
-void PostRollState::roll(int, int) { std::cout << "you have already rolled this turn\n"; }
+void PostRollState::roll(int, int) { turn_.out() << "you have already rolled this turn\n"; }
 
-void PostRollState::next() { turn_.game().endTurn(); }
+void PostRollState::next() { turn_.endTurn(); }
 
 void LockupState::roll(int die1, int die2) {
     Game &game = turn_.game();
@@ -99,7 +99,7 @@ void LockupState::roll(int die1, int die2) {
     const Dice &dice = game.dice();
 
     if (dice.isDoubles()) {
-        std::cout << player.name() << " rolls doubles and leaves The Lockup\n";
+        game.out() << player.name() << " rolls doubles and leaves The Lockup\n";
         player.releaseFromLockup();
         game.movePlayer(player, dice.total());
         turn_.setState(turn_.postRollState());
@@ -113,17 +113,18 @@ void LockupState::roll(int die1, int die2) {
             game.movePlayer(player, dice.total());
         }
     } else {
-        std::cout << player.name() << " stays in The Lockup ("
-                  << (kMaxLockupTurns - player.lockupTurns()) << " turns left)\n";
+        game.out() << player.name() << " stays in The Lockup ("
+                   << (kMaxLockupTurns - player.lockupTurns()) << " turns left)\n";
     }
     turn_.setState(turn_.postRollState());
 }
 
-void LockupState::next() { turn_.game().endTurn(); }
+void LockupState::next() { turn_.endTurn(); }
 
 void AwaitingTradeResponseState::roll(int, int) { next(); }
 
 void AwaitingTradeResponseState::next() {
-    std::cout << turn_.game().tradeTargetName()
-              << " must answer the trade offer first: accept or reject\n";
+    Game &game = turn_.game();
+    game.out() << game.tradeTargetName()
+               << " must answer the trade offer first: accept or reject\n";
 }

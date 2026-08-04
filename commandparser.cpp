@@ -37,11 +37,11 @@ std::unique_ptr<Command> CommandParser::parse(Game &game, const std::string &lin
         int die2 = 0;
         if (!(input >> second) || !parseDie(first, die1) || !parseDie(second, die2)) {
             return std::make_unique<MessageCommand>(
-                "roll takes either no arguments or two non-negative dice values");
+                game.out(), "roll takes either no arguments or two non-negative dice values");
         }
         if (!game.testingMode()) {
             return std::make_unique<MessageCommand>(
-                "explicit dice values need -testing; plain \"roll\" rolls normally");
+                game.out(), "explicit dice values need -testing; plain \"roll\" rolls normally");
         }
         return std::make_unique<RollCommand>(game, die1, die2);
     }

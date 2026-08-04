@@ -1,6 +1,6 @@
 #include "controller.h"
 
-#include <iostream>
+#include <ostream>
 
 #include "command.h"
 #include "commandparser.h"
@@ -15,7 +15,7 @@ void GameController::handleCommand(const std::string &line) {
 
     std::unique_ptr<Command> command = CommandParser::parse(game_, line);
     if (!command) {
-        std::cout << "I don't understand \"" << line << "\"\n";
+        game_.out() << "I don't understand \"" << line << "\"\n";
     } else {
         command->execute();
     }

@@ -61,8 +61,10 @@ int main(int argc, char *argv[]) {
     if (!parseArguments(argc, argv, opts)) return 1;
 
     // Seeded once at startup so that a given seed replays an identical game.
+    // main is the composition root: it alone decides that the game talks to
+    // the console, and everything downstream takes the streams it wires in.
     Game game{opts.testing, opts.seedGiven ? opts.seed : std::random_device{}(),
-              opts.shuffledDeck};
+              opts.shuffledDeck, std::cin, std::cout};
     if (opts.shuffledDeck) {
         std::cout << "Enchantment effects come from a shuffled deck of "
                   << CardDeck::size() << " cards\n";
@@ -84,7 +86,7 @@ int main(int argc, char *argv[]) {
     game.turn().beginTurn();
 
     auto controller = std::make_shared<GameController>(game);
-    TextView view{game, controller};
+    TextView view{game, controller, std::cout};
     view.render(std::cout);
 
     std::string line;

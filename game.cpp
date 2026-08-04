@@ -2,7 +2,8 @@
 
 #include <cassert>
 #include <cctype>
-#include <iostream>
+#include <istream>
+#include <ostream>
 #include <sstream>
 #include <utility>
 
@@ -12,8 +13,9 @@
 #include "turn.h"
 #include "workshop.h"
 
-Game::Game(bool testingMode, unsigned seed, bool shuffledDeck)
-    : testingMode_{testingMode}, rng_{seed}, dice_{rng_} {
+Game::Game(bool testingMode, unsigned seed, bool shuffledDeck, std::istream &in,
+           std::ostream &out)
+    : testingMode_{testingMode}, in_{in}, out_{out}, rng_{seed}, dice_{rng_} {
     if (shuffledDeck) deck_ = std::make_unique<CardDeck>(rng_);
     turn_ = std::make_unique<Turn>(*this);
 }
@@ -62,7 +64,7 @@ void Game::endTurn() {
     // Only the current Artificer's own debt blocks their turn; one parked
     // against someone else is settled when that Artificer's turn comes round.
     if (owes(currentPlayer())) {
-        std::cout << "settle the debt or declare insolvency before ending your turn\n";
+        out_ << "settle the debt or declare insolvency before ending your turn\n";
         return;
     }
     if (isOver()) return;
@@ -72,7 +74,7 @@ void Game::endTurn() {
     } while (players_[current_]->isInsolvent());
 
     turn_->beginTurn();
-    std::cout << "it is now " << currentPlayer().name() << "'s turn\n";
+    out_ << "it is now " << currentPlayer().name() << "'s turn\n";
 }
 
 void Game::movePlayer(Player &player, int steps) {
@@ -82,17 +84,17 @@ void Game::movePlayer(Player &player, int steps) {
 
     if (const int laps = Board::grandEntrancePasses(from, steps); laps > 0) {
         player.addReagents(kGrandEntranceBonus * laps);
-        std::cout << player.name() << " passes the Grand Entrance and collects "
+        out_ << player.name() << " passes the Grand Entrance and collects "
                   << (kGrandEntranceBonus * laps) << " Reagents\n";
     }
 
-    std::cout << player.name() << " lands on " << board_.at(to).name() << '\n';
+    out_ << player.name() << " lands on " << board_.at(to).name() << '\n';
     board_.at(to).landOn(*this, player);
 }
 
 void Game::sendToLockup(Player &player) {
     player.sendToLockup();
-    std::cout << player.name() << " is sent to The Lockup\n";
+    out_ << player.name() << " is sent to The Lockup\n";
 }
 
 bool Game::offerLockupExit(Player &player) {
@@ -116,19 +118,19 @@ bool Game::offerLockupExit(Player &player) {
         if (answer == "pay" && canPay) {
             payTreasury(player, kLockupFine);
             player.releaseFromLockup();
-            std::cout << player.name() << " leaves The Lockup\n";
+            out_ << player.name() << " leaves The Lockup\n";
             return true;
         }
         if (answer == "token" && hasToken) {
             player.setFreePasses(player.freePasses() - 1);
             player.releaseFromLockup();
-            std::cout << player.name() << " spends a Free-Pass Token to leave The Lockup\n";
+            out_ << player.name() << " spends a Free-Pass Token to leave The Lockup\n";
             return true;
         }
-        std::cout << "please answer roll";
-        if (canPay) std::cout << ", pay";
-        if (hasToken) std::cout << " or token";
-        std::cout << '\n';
+        out_ << "please answer roll";
+        if (canPay) out_ << ", pay";
+        if (hasToken) out_ << " or token";
+        out_ << '\n';
     }
 }
 
@@ -136,7 +138,7 @@ bool Game::forceLockupExit(Player &player) {
     if (player.freePasses() > 0) {
         player.setFreePasses(player.freePasses() - 1);
         player.releaseFromLockup();
-        std::cout << player.name() << " spends a Free-Pass Token to leave The Lockup\n";
+        out_ << player.name() << " spends a Free-Pass Token to leave The Lockup\n";
         return true;
     }
     // payTreasury parks a debt when the fine is unaffordable, which is what
@@ -183,11 +185,11 @@ void Game::payTreasury(Player &player, int amount) {
     if (player.reagents() >= amount) {
         player.addReagents(-amount);
         treasury_ += amount;
-        std::cout << player.name() << " pays " << amount << " Reagents to the Guild Treasury\n";
+        out_ << player.name() << " pays " << amount << " Reagents to the Guild Treasury\n";
         return;
     }
     addDebt(player, nullptr, amount);
-    std::cout << player.name() << " owes " << amountOwed(player)
+    out_ << player.name() << " owes " << amountOwed(player)
               << " Reagents to the Guild Treasury but holds only " << player.reagents()
               << "\nraise funds by mortgaging, or use the insolvent command\n";
 }
@@ -197,11 +199,11 @@ void Game::payPlayer(Player &from, Player &to, int amount) {
     if (from.reagents() >= amount) {
         from.addReagents(-amount);
         to.addReagents(amount);
-        std::cout << from.name() << " pays " << amount << " Reagents to " << to.name() << '\n';
+        out_ << from.name() << " pays " << amount << " Reagents to " << to.name() << '\n';
         return;
     }
     addDebt(from, &to, amount);
-    std::cout << from.name() << " owes " << amountOwed(from) << " Reagents to " << to.name()
+    out_ << from.name() << " owes " << amountOwed(from) << " Reagents to " << to.name()
               << " but holds only " << from.reagents()
               << "\nraise funds by mortgaging, or use the insolvent command\n";
 }
@@ -228,18 +230,18 @@ void Game::settleDebtIfPossible() {
         settled.addReagents(-debt.amount);
         if (debt.creditor != nullptr) {
             debt.creditor->addReagents(debt.amount);
-            std::cout << settled.name() << " settles " << debt.amount << " Reagents with "
+            out_ << settled.name() << " settles " << debt.amount << " Reagents with "
                       << debt.creditor->name() << '\n';
         } else {
             treasury_ += debt.amount;
-            std::cout << settled.name() << " settles " << debt.amount
+            out_ << settled.name() << " settles " << debt.amount
                       << " Reagents with the Guild Treasury\n";
         }
 
         // A settled Lockup fine has bought the exit it was owed for.
         if (debt.fromLockupFine) {
             settled.releaseFromLockup();
-            std::cout << settled.name() << " leaves The Lockup\n";
+            out_ << settled.name() << " leaves The Lockup\n";
             movePlayer(settled, debt.lockupMove);
         }
     }
@@ -269,10 +271,10 @@ void Game::transferEverything(Player &from, Player &to) {
         if (!ownable || ownable->owner() != &from) continue;
         fees += transferDistrict(*ownable, to);
     }
-    std::cout << to.name() << " receives everything " << from.name() << " held\n";
+    out_ << to.name() << " receives everything " << from.name() << " held\n";
 
     if (fees > 0) {
-        std::cout << to.name() << " owes " << fees
+        out_ << to.name() << " owes " << fees
                   << " Reagents on the mortgaged districts received\n";
         // Through payTreasury so an unaffordable total becomes a debt rather
         // than a negative balance.
@@ -318,15 +320,15 @@ void Game::declareInsolvency() {
     Player &debtor = currentPlayer();
     const auto owed = debts_.find(&debtor);
     if (owed == debts_.end()) {
-        std::cout << "you may only declare insolvency when you owe more than you hold\n";
+        out_ << "you may only declare insolvency when you owe more than you hold\n";
         return;
     }
     if (debtor.reagents() >= owed->second.amount) {
-        std::cout << "you can cover this debt, so insolvency is not available\n";
+        out_ << "you can cover this debt, so insolvency is not available\n";
         return;
     }
 
-    std::cout << debtor.name() << " declares insolvency\n";
+    out_ << debtor.name() << " declares insolvency\n";
     // Erasing the entry also discards any half-finished Lockup exit, which
     // dies with the Artificer who owed for it.
     Player *creditor = owed->second.creditor;
@@ -340,7 +342,7 @@ void Game::declareInsolvency() {
     }
 
     if (const Player *champion = winner()) {
-        std::cout << champion->name() << " is the last solvent Artificer and wins\n";
+        out_ << champion->name() << " is the last solvent Artificer and wins\n";
     }
 }
 
@@ -348,26 +350,26 @@ bool Game::mortgage(const std::string &districtName) {
     Player &player = currentPlayer();
     OwnableDistrict *district = board_.findOwnable(districtName);
     if (district == nullptr) {
-        std::cout << "there is no ownable district called " << districtName << '\n';
+        out_ << "there is no ownable district called " << districtName << '\n';
         return false;
     }
     if (district->owner() != &player) {
-        std::cout << district->name() << " is not yours to mortgage\n";
+        out_ << district->name() << " is not yours to mortgage\n";
         return false;
     }
     if (district->isMortgaged()) {
-        std::cout << district->name() << " is already mortgaged\n";
+        out_ << district->name() << " is already mortgaged\n";
         return false;
     }
     if (district->upgradeCount() > 0) {
-        std::cout << "sell every upgrade on " << district->name() << " first\n";
+        out_ << "sell every upgrade on " << district->name() << " first\n";
         return false;
     }
 
     const int payout = district->buyPrice() / 2;
     district->setMortgaged(true);
     player.addReagents(payout);
-    std::cout << player.name() << " mortgages " << district->name() << " for " << payout
+    out_ << player.name() << " mortgages " << district->name() << " for " << payout
               << " Reagents\n";
     settleDebtIfPossible();
     return true;
@@ -377,29 +379,29 @@ bool Game::unmortgage(const std::string &districtName) {
     Player &player = currentPlayer();
     OwnableDistrict *district = board_.findOwnable(districtName);
     if (district == nullptr) {
-        std::cout << "there is no ownable district called " << districtName << '\n';
+        out_ << "there is no ownable district called " << districtName << '\n';
         return false;
     }
     if (district->owner() != &player) {
-        std::cout << district->name() << " is not yours\n";
+        out_ << district->name() << " is not yours\n";
         return false;
     }
     if (!district->isMortgaged()) {
-        std::cout << district->name() << " is not mortgaged\n";
+        out_ << district->name() << " is not mortgaged\n";
         return false;
     }
 
     // Half the printed value plus a further 10%.
     const int cost = district->buyPrice() * 6 / 10;
     if (player.reagents() < cost) {
-        std::cout << "unmortgaging " << district->name() << " costs " << cost
+        out_ << "unmortgaging " << district->name() << " costs " << cost
                   << " Reagents\n";
         return false;
     }
     player.addReagents(-cost);
     treasury_ += cost;
     district->setMortgaged(false);
-    std::cout << player.name() << " unmortgages " << district->name() << " for " << cost
+    out_ << player.name() << " unmortgages " << district->name() << " for " << cost
               << " Reagents\n";
     return true;
 }
@@ -408,23 +410,24 @@ namespace {
 
 // Shared lookup for the two upgrade commands: everything both must reject
 // before the level itself is considered.
-Workshop *findUpgradableWorkshop(Board &board, Player &player, const std::string &name) {
+Workshop *findUpgradableWorkshop(Board &board, Player &player, const std::string &name,
+                                 std::ostream &out) {
     OwnableDistrict *district = board.findOwnable(name);
     if (district == nullptr) {
-        std::cout << "there is no ownable district called " << name << '\n';
+        out << "there is no ownable district called " << name << '\n';
         return nullptr;
     }
     auto *workshop = dynamic_cast<Workshop *>(district);
     if (workshop == nullptr) {
-        std::cout << district->name() << " is not a Workshop, so it takes no upgrades\n";
+        out << district->name() << " is not a Workshop, so it takes no upgrades\n";
         return nullptr;
     }
     if (workshop->owner() != &player) {
-        std::cout << workshop->name() << " is not yours\n";
+        out << workshop->name() << " is not yours\n";
         return nullptr;
     }
     if (workshop->isMortgaged()) {
-        std::cout << workshop->name() << " is mortgaged\n";
+        out << workshop->name() << " is mortgaged\n";
         return nullptr;
     }
     return workshop;
@@ -434,21 +437,21 @@ Workshop *findUpgradableWorkshop(Board &board, Player &player, const std::string
 
 bool Game::buyUpgrade(const std::string &districtName) {
     Player &player = currentPlayer();
-    Workshop *workshop = findUpgradableWorkshop(board_, player, districtName);
+    Workshop *workshop = findUpgradableWorkshop(board_, player, districtName, out_);
     if (workshop == nullptr) return false;
 
     if (!guildComplete(workshop->guild(), player)) {
-        std::cout << "you must own every Workshop in that Crafting Guild first\n";
+        out_ << "you must own every Workshop in that Crafting Guild first\n";
         return false;
     }
     if (workshop->upgradeCount() >= kMaxUpgrades) {
-        std::cout << workshop->name() << " already has a Master Atelier\n";
+        out_ << workshop->name() << " already has a Master Atelier\n";
         return false;
     }
 
     const int cost = workshop->upgradeCost();
     if (player.reagents() < cost) {
-        std::cout << "an upgrade on " << workshop->name() << " costs " << cost
+        out_ << "an upgrade on " << workshop->name() << " costs " << cost
                   << " Reagents\n";
         return false;
     }
@@ -456,25 +459,25 @@ bool Game::buyUpgrade(const std::string &districtName) {
     player.addReagents(-cost);
     treasury_ += cost;
     workshop->setUpgrades(workshop->upgradeCount() + 1);
-    std::cout << player.name() << " upgrades " << workshop->name() << " to level "
+    out_ << player.name() << " upgrades " << workshop->name() << " to level "
               << workshop->upgradeCount() << " for " << cost << " Reagents\n";
     return true;
 }
 
 bool Game::sellUpgrade(const std::string &districtName) {
     Player &player = currentPlayer();
-    Workshop *workshop = findUpgradableWorkshop(board_, player, districtName);
+    Workshop *workshop = findUpgradableWorkshop(board_, player, districtName, out_);
     if (workshop == nullptr) return false;
 
     if (workshop->upgradeCount() <= 0) {
-        std::cout << workshop->name() << " has no upgrades to sell\n";
+        out_ << workshop->name() << " has no upgrades to sell\n";
         return false;
     }
 
     const int refund = workshop->upgradeCost() / 2;
     workshop->setUpgrades(workshop->upgradeCount() - 1);
     player.addReagents(refund);
-    std::cout << player.name() << " sells an upgrade on " << workshop->name() << " for "
+    out_ << player.name() << " sells an upgrade on " << workshop->name() << " for "
               << refund << " Reagents, leaving level " << workshop->upgradeCount() << '\n';
     // Selling upgrades is one of the ways the spec lets an Artificer raise
     // funds against an outstanding debt.
@@ -507,7 +510,7 @@ std::string sideText(const OwnableDistrict *district, int reagents) {
 bool Game::offerTrade(const std::string &targetName, const std::string &give,
                       const std::string &receive) {
     if (offer_.active) {
-        std::cout << "a trade offer is already awaiting an answer\n";
+        out_ << "a trade offer is already awaiting an answer\n";
         return false;
     }
 
@@ -519,11 +522,11 @@ bool Game::offerTrade(const std::string &targetName, const std::string &give,
         }
     }
     if (to == nullptr) {
-        std::cout << "there is no solvent Artificer called " << targetName << '\n';
+        out_ << "there is no solvent Artificer called " << targetName << '\n';
         return false;
     }
     if (to == &from) {
-        std::cout << "you cannot trade with yourself\n";
+        out_ << "you cannot trade with yourself\n";
         return false;
     }
 
@@ -534,29 +537,29 @@ bool Game::offerTrade(const std::string &targetName, const std::string &give,
     const bool giveIsReagents = parseReagents(give, offer.giveReagents);
     const bool receiveIsReagents = parseReagents(receive, offer.receiveReagents);
     if (giveIsReagents && receiveIsReagents) {
-        std::cout << "a Reagent-for-Reagent trade is not allowed\n";
+        out_ << "a Reagent-for-Reagent trade is not allowed\n";
         return false;
     }
 
     // Each side is validated against whoever is parting with it.
     if (giveIsReagents) {
         if (from.reagents() < offer.giveReagents) {
-            std::cout << from.name() << " does not hold " << offer.giveReagents
+            out_ << from.name() << " does not hold " << offer.giveReagents
                       << " Reagents\n";
             return false;
         }
     } else {
         offer.giveDistrict = board_.findOwnable(give);
         if (offer.giveDistrict == nullptr) {
-            std::cout << "there is no ownable district called " << give << '\n';
+            out_ << "there is no ownable district called " << give << '\n';
             return false;
         }
         if (offer.giveDistrict->owner() != &from) {
-            std::cout << offer.giveDistrict->name() << " is not yours to trade\n";
+            out_ << offer.giveDistrict->name() << " is not yours to trade\n";
             return false;
         }
         if (!guildIsUnimproved(offer.giveDistrict->guild())) {
-            std::cout << offer.giveDistrict->name()
+            out_ << offer.giveDistrict->name()
                       << " cannot be traded while its Guild holds upgrades\n";
             return false;
         }
@@ -564,23 +567,23 @@ bool Game::offerTrade(const std::string &targetName, const std::string &give,
 
     if (receiveIsReagents) {
         if (to->reagents() < offer.receiveReagents) {
-            std::cout << to->name() << " does not hold " << offer.receiveReagents
+            out_ << to->name() << " does not hold " << offer.receiveReagents
                       << " Reagents\n";
             return false;
         }
     } else {
         offer.receiveDistrict = board_.findOwnable(receive);
         if (offer.receiveDistrict == nullptr) {
-            std::cout << "there is no ownable district called " << receive << '\n';
+            out_ << "there is no ownable district called " << receive << '\n';
             return false;
         }
         if (offer.receiveDistrict->owner() != to) {
-            std::cout << offer.receiveDistrict->name() << " does not belong to " << to->name()
+            out_ << offer.receiveDistrict->name() << " does not belong to " << to->name()
                       << '\n';
             return false;
         }
         if (!guildIsUnimproved(offer.receiveDistrict->guild())) {
-            std::cout << offer.receiveDistrict->name()
+            out_ << offer.receiveDistrict->name()
                       << " cannot be traded while its Guild holds upgrades\n";
             return false;
         }
@@ -600,12 +603,12 @@ bool Game::offerTrade(const std::string &targetName, const std::string &give,
     const int toAfter =
         to->reagents() + offer.giveReagents - offer.receiveReagents - feeOnGiven;
     if (fromAfter < 0) {
-        std::cout << from.name() << " could not cover the " << feeOnAsked
+        out_ << from.name() << " could not cover the " << feeOnAsked
                   << "-Reagent charge on the mortgaged district\n";
         return false;
     }
     if (toAfter < 0) {
-        std::cout << to->name() << " could not cover the " << feeOnGiven
+        out_ << to->name() << " could not cover the " << feeOnGiven
                   << "-Reagent charge on the mortgaged district\n";
         return false;
     }
@@ -613,7 +616,7 @@ bool Game::offerTrade(const std::string &targetName, const std::string &give,
     offer.active = true;
     offer_ = offer;
     turn_->enterTradeResponse();
-    std::cout << from.name() << " offers " << sideText(offer_.giveDistrict, offer_.giveReagents)
+    out_ << from.name() << " offers " << sideText(offer_.giveDistrict, offer_.giveReagents)
               << " to " << to->name() << " for "
               << sideText(offer_.receiveDistrict, offer_.receiveReagents) << '\n'
               << to->name() << ": accept or reject\n";
@@ -622,7 +625,7 @@ bool Game::offerTrade(const std::string &targetName, const std::string &give,
 
 void Game::acceptTrade() {
     if (!offer_.active) {
-        std::cout << "there is no trade offer to answer\n";
+        out_ << "there is no trade offer to answer\n";
         return;
     }
     const TradeOffer offer = offer_;
@@ -635,7 +638,7 @@ void Game::acceptTrade() {
         if (fee > 0) {
             offer.to->addReagents(-fee);
             treasury_ += fee;
-            std::cout << offer.to->name() << " pays " << fee << " Reagents on the mortgaged "
+            out_ << offer.to->name() << " pays " << fee << " Reagents on the mortgaged "
                       << offer.giveDistrict->name() << '\n';
         }
     } else {
@@ -648,7 +651,7 @@ void Game::acceptTrade() {
         if (fee > 0) {
             offer.from->addReagents(-fee);
             treasury_ += fee;
-            std::cout << offer.from->name() << " pays " << fee << " Reagents on the mortgaged "
+            out_ << offer.from->name() << " pays " << fee << " Reagents on the mortgaged "
                       << offer.receiveDistrict->name() << '\n';
         }
     } else {
@@ -656,7 +659,7 @@ void Game::acceptTrade() {
         offer.from->addReagents(offer.receiveReagents);
     }
 
-    std::cout << offer.to->name() << " accepts the trade\n";
+    out_ << offer.to->name() << " accepts the trade\n";
     turn_->resumeAfterTrade();
     // Trading is one of the ways the spec lets an Artificer raise funds.
     settleDebtIfPossible();
@@ -664,10 +667,10 @@ void Game::acceptTrade() {
 
 void Game::rejectTrade() {
     if (!offer_.active) {
-        std::cout << "there is no trade offer to answer\n";
+        out_ << "there is no trade offer to answer\n";
         return;
     }
-    std::cout << offer_.to->name() << " rejects the trade\n";
+    out_ << offer_.to->name() << " rejects the trade\n";
     offer_ = TradeOffer{};
     turn_->resumeAfterTrade();
 }
@@ -689,25 +692,25 @@ const Player *Game::winner() const {
 }
 
 void Game::printAssets(const Player &player) const {
-    std::cout << player.name() << " (" << player.token() << ") holds " << player.reagents()
+    out_ << player.name() << " (" << player.token() << ") holds " << player.reagents()
               << " Reagents, " << player.freePasses() << " Free-Pass Tokens\n";
     for (int square = 0; square < Board::size(); ++square) {
         const auto *ownable = dynamic_cast<const OwnableDistrict *>(&board_.at(square));
         if (!ownable || ownable->owner() != &player) continue;
-        std::cout << "  " << ownable->name();
+        out_ << "  " << ownable->name();
         if (ownable->isMortgaged()) {
-            std::cout << " (mortgaged)";
+            out_ << " (mortgaged)";
         } else if (ownable->upgradeCount() > 0) {
-            std::cout << " (" << ownable->upgradeCount() << " upgrades)";
+            out_ << " (" << ownable->upgradeCount() << " upgrades)";
         }
-        std::cout << '\n';
+        out_ << '\n';
     }
 }
 
 void Game::printAllAssets() const {
     for (const auto &player : players_) {
         if (player->isInsolvent()) {
-            std::cout << player->name() << " is insolvent\n";
+            out_ << player->name() << " is insolvent\n";
             continue;
         }
         printAssets(*player);
@@ -753,19 +756,19 @@ int Game::totalWorth(const Player &player) const {
 
 void Game::offerPurchase(OwnableDistrict &district, Player &buyer) {
     const int price = district.buyPrice();
-    std::cout << district.name() << " is unowned, " << price << " Reagents\n";
+    out_ << district.name() << " is unowned, " << price << " Reagents\n";
 
     if (buyer.reagents() >= price) {
         const std::string answer = prompt("buy it? [yes/no] ");
         if (answer == "yes" || answer == "y") {
             buyer.addReagents(-price);
             district.setOwner(&buyer);
-            std::cout << buyer.name() << " buys " << district.name() << " for " << price
+            out_ << buyer.name() << " buys " << district.name() << " for " << price
                       << " Reagents\n";
             return;
         }
     } else {
-        std::cout << buyer.name() << " cannot afford " << district.name() << '\n';
+        out_ << buyer.name() << " cannot afford " << district.name() << '\n';
     }
 
     runAuction(district);
@@ -778,7 +781,7 @@ void Game::runAuction(OwnableDistrict &district) {
     }
     if (active.size() < 2) return;
 
-    std::cout << "the Guild auctions " << district.name() << '\n';
+    out_ << "the Guild auctions " << district.name() << '\n';
     int highest = 0;
     Player *leader = nullptr;
     std::size_t index = 0;
@@ -795,7 +798,7 @@ void Game::runAuction(OwnableDistrict &district) {
         // A blank answer, including end of input, counts as withdrawing, so a
         // closed stream can never leave the auction spinning.
         if (answer == "withdraw" || answer == "w" || answer.empty()) {
-            std::cout << bidder->name() << " withdraws\n";
+            out_ << bidder->name() << " withdraws\n";
             active.erase(active.begin() + static_cast<std::ptrdiff_t>(index));
             if (index >= active.size()) index = 0;
             continue;
@@ -804,7 +807,7 @@ void Game::runAuction(OwnableDistrict &district) {
         int bid = 0;
         std::istringstream parsed{answer};
         if (!(parsed >> bid) || bid <= highest || bid > bidder->reagents()) {
-            std::cout << "type just the number: more than " << highest << " and no more than "
+            out_ << "type just the number: more than " << highest << " and no more than "
                       << bidder->reagents() << ", or \"withdraw\"\n";
             continue;  // the same Artificer tries again
         }
@@ -815,12 +818,12 @@ void Game::runAuction(OwnableDistrict &district) {
 
     if (leader == nullptr) {
         // Everyone withdrew without bidding, so nothing changes hands.
-        std::cout << "no bids were made; " << district.name() << " stays with the Guild\n";
+        out_ << "no bids were made; " << district.name() << " stays with the Guild\n";
         return;
     }
     leader->addReagents(-highest);
     district.setOwner(leader);
-    std::cout << leader->name() << " wins " << district.name() << " for " << highest
+    out_ << leader->name() << " wins " << district.name() << " for " << highest
               << " Reagents\n";
 }
 
@@ -837,14 +840,14 @@ bool Game::tryGrantFreePass(Player &player) {
     if (chance(rng_) > kFreePassPercent) return false;
 
     player.setFreePasses(player.freePasses() + 1);
-    std::cout << player.name() << " receives a Free-Pass Token\n";
+    out_ << player.name() << " receives a Free-Pass Token\n";
     return true;
 }
 
 std::string Game::prompt(const std::string &question) const {
-    std::cout << question;
-    std::cout.flush();
+    out_ << question;
+    out_.flush();
     std::string line;
-    std::getline(std::cin, line);
+    std::getline(in_, line);
     return line;
 }

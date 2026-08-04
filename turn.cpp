@@ -13,6 +13,10 @@ Turn::Turn(Game &game)
 
 Turn::~Turn() = default;
 
+std::ostream &Turn::out() { return game_.out(); }
+
+void Turn::endTurn() { game_.endTurn(); }
+
 void Turn::beginTurn() {
     resetDoubles();
     resume_ = nullptr;

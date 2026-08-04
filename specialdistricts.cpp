@@ -1,6 +1,6 @@
 #include "specialdistricts.h"
 
-#include <iostream>
+#include <ostream>
 #include <string>
 
 #include "boarddata.h"
@@ -13,8 +13,8 @@
 void GrandEntrance::landOn(Game &, Player &) {}
 
 // Landing on The Lockup does nothing; only being sent here detains anyone.
-void Lockup::landOn(Game &, Player &visitor) {
-    std::cout << visitor.name() << " is just visiting The Lockup\n";
+void Lockup::landOn(Game &game, Player &visitor) {
+    game.out() << visitor.name() << " is just visiting The Lockup\n";
 }
 
 void FreeRest::landOn(Game &, Player &) {}
@@ -26,8 +26,8 @@ void GoToLockup::landOn(Game &game, Player &visitor) {
 
 void GuildLevy::landOn(Game &game, Player &visitor) {
     const int share = game.totalWorth(visitor) * kGuildLevyPercent / 100;
-    std::cout << "Guild Levy: pay " << kGuildLevyFlat << " Reagents, or "
-              << kGuildLevyPercent << "% of your worth which is " << share << " Reagents\n";
+    game.out() << "Guild Levy: pay " << kGuildLevyFlat << " Reagents, or "
+               << kGuildLevyPercent << "% of your worth which is " << share << " Reagents\n";
 
     while (true) {
         const std::string answer = game.prompt("flat or percent? ");
@@ -41,7 +41,7 @@ void GuildLevy::landOn(Game &game, Player &visitor) {
             game.payTreasury(visitor, kGuildLevyFlat);
             return;
         }
-        std::cout << "please answer flat or percent\n";
+        game.out() << "please answer flat or percent\n";
     }
 }
 
@@ -49,8 +49,8 @@ void TransitToll::landOn(Game &game, Player &visitor) {
     game.payTreasury(visitor, kTransitTollFee);
 }
 
-void MarketFestival::landOn(Game &, Player &visitor) {
-    std::cout << visitor.name() << "'s cart is jostled by the festival crowds\n";
+void MarketFestival::landOn(Game &game, Player &visitor) {
+    game.out() << visitor.name() << "'s cart is jostled by the festival crowds\n";
 }
 
 // Markets sit at squares 5, 15, 28 and 36, more than three apart, so a move of
@@ -60,8 +60,8 @@ void WanderingMarket::landOn(Game &game, Player &visitor) {
     if (game.tryGrantFreePass(visitor)) return;
 
     const MarketOutcome &outcome = drawMarketOutcome(game.rng());
-    std::cout << "a Wandering Market sends " << visitor.name() << ' ' << outcome.description
-              << '\n';
+    game.out() << "a Wandering Market sends " << visitor.name() << ' ' << outcome.description
+               << '\n';
 
     switch (outcome.move) {
         case MarketMove::Back3: game.movePlayer(visitor, -3); return;
@@ -85,8 +85,8 @@ void EnchantmentDeck::landOn(Game &game, Player &visitor) {
     // Either the spec's probability table or the shuffled deck, chosen at
     // startup; the square itself does not care which.
     const int change = game.drawEnchantmentValue();
-    std::cout << visitor.name() << " draws an Enchantment card: " << (change > 0 ? "+" : "")
-              << change << " Reagents\n";
+    game.out() << visitor.name() << " draws an Enchantment card: " << (change > 0 ? "+" : "")
+               << change << " Reagents\n";
 
     if (change < 0) {
         // Routed through payTreasury so a loss the Artificer cannot cover

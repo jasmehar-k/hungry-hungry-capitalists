@@ -21,8 +21,9 @@ inline constexpr std::size_t kGridSize = 11;
 // directly for the state it needs, and delegates user input to its Controller.
 class TextView final : public Observer {
 public:
-    // Registers itself as an observer of the Model and deregisters on destruction.
-    TextView(Game &game, std::shared_ptr<ControllerInterface> controller);
+    // Registers itself as an observer of the Model and deregisters on
+    // destruction. Draws to the injected stream; main decides which one.
+    TextView(Game &game, std::shared_ptr<ControllerInterface> controller, std::ostream &out);
     ~TextView() override;
 
     // Registration is tied to this exact instance; a copy would deregister twice.
@@ -41,6 +42,7 @@ private:
 
     Game &game_;
     std::shared_ptr<ControllerInterface> controller_;
+    std::ostream &out_;
 };
 
 #endif  // TEXTVIEW_H
