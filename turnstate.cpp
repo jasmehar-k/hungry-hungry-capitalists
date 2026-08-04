@@ -96,3 +96,10 @@ void LockupState::roll(int die1, int die2) {
 }
 
 void LockupState::next() { turn_.game().endTurn(); }
+
+void AwaitingTradeResponseState::roll(int, int) { next(); }
+
+void AwaitingTradeResponseState::next() {
+    std::cout << turn_.game().tradeTargetName()
+              << " must answer the trade offer first: accept or reject\n";
+}

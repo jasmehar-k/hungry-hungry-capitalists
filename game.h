@@ -102,6 +102,16 @@ public:
     bool buyUpgrade(const std::string &districtName);
     bool sellUpgrade(const std::string &districtName);
 
+    // give and receive are each either a Reagent amount or a district name.
+    // Reagent-for-Reagent is rejected, and a district may only move while every
+    // district in its Guild is unimproved.
+    bool offerTrade(const std::string &targetName, const std::string &give,
+                    const std::string &receive);
+    void acceptTrade();
+    void rejectTrade();
+    bool hasTradeOffer() const { return offer_.active; }
+    std::string tradeTargetName() const;
+
     std::size_t solventCount() const;
     const Player *winner() const;
     bool isOver() const { return winner() != nullptr; }
@@ -124,9 +134,26 @@ private:
     Player *creditor_ = nullptr;
     int debtAmount_ = 0;
 
+    // A district is either given or asked for; a null pointer on a side means
+    // that side is Reagents instead.
+    struct TradeOffer {
+        Player *from = nullptr;
+        Player *to = nullptr;
+        OwnableDistrict *giveDistrict = nullptr;
+        int giveReagents = 0;
+        OwnableDistrict *receiveDistrict = nullptr;
+        int receiveReagents = 0;
+        bool active = false;
+    };
+    TradeOffer offer_;
+
     void settleDebtIfPossible();
+    // Hands a district over, charging the receiver 10% of the printed value
+    // when it is mortgaged. Shared by trades and insolvency transfers.
+    void transferDistrict(OwnableDistrict &district, Player &to);
     void transferEverything(Player &from, Player &to);
     void releaseToMarket(Player &from);
+    bool guildIsUnimproved(Guild guild) const;
 };
 
 #endif  // GAME_H

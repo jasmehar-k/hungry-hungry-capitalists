@@ -8,12 +8,26 @@ Turn::Turn(Game &game)
       preRoll_{std::make_unique<PreRollState>(*this)},
       postRoll_{std::make_unique<PostRollState>(*this)},
       lockup_{std::make_unique<LockupState>(*this)},
+      awaitingTrade_{std::make_unique<AwaitingTradeResponseState>(*this)},
       state_{preRoll_.get()} {}
 
 Turn::~Turn() = default;
 
 void Turn::beginTurn() {
     resetDoubles();
+    resume_ = nullptr;
     if (game_.playerCount() == 0) return;
     state_ = game_.currentPlayer().inLockup() ? lockup_.get() : preRoll_.get();
+}
+
+void Turn::enterTradeResponse() {
+    if (state_ == awaitingTrade_.get()) return;  // already awaiting an answer
+    resume_ = state_;
+    state_ = awaitingTrade_.get();
+}
+
+void Turn::resumeAfterTrade() {
+    if (resume_ == nullptr) return;
+    state_ = resume_;
+    resume_ = nullptr;
 }

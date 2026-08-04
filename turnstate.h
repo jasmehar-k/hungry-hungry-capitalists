@@ -59,8 +59,17 @@ private:
     Turn &turn_;
 };
 
-// A fourth state, AwaitingTradeResponse, belongs here once the trade command
-// exists (spec priority 8). It is deliberately absent until then: an
-// unreachable state would pad the pattern without implementing it.
+// A trade has been offered and only the named Artificer's answer matters, so
+// both rolling and ending the turn are refused until they respond.
+class AwaitingTradeResponseState final : public TurnState {
+public:
+    explicit AwaitingTradeResponseState(Turn &turn) : turn_{turn} {}
+    void roll(int die1, int die2) override;
+    void next() override;
+    std::string_view name() const override { return "awaiting a trade response"; }
+
+private:
+    Turn &turn_;
+};
 
 #endif  // TURNSTATE_H

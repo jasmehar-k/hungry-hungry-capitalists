@@ -65,6 +65,40 @@ private:
     std::string district_;
 };
 
+class TradeCommand final : public Command {
+public:
+    TradeCommand(Game &game, std::string target, std::string give, std::string receive)
+        : game_{game},
+          target_{std::move(target)},
+          give_{std::move(give)},
+          receive_{std::move(receive)} {}
+    void execute() override;
+
+private:
+    Game &game_;
+    std::string target_;
+    std::string give_;
+    std::string receive_;
+};
+
+class AcceptCommand final : public Command {
+public:
+    explicit AcceptCommand(Game &game) : game_{game} {}
+    void execute() override;
+
+private:
+    Game &game_;
+};
+
+class RejectCommand final : public Command {
+public:
+    explicit RejectCommand(Game &game) : game_{game} {}
+    void execute() override;
+
+private:
+    Game &game_;
+};
+
 class UpgradeCommand final : public Command {
 public:
     UpgradeCommand(Game &game, std::string district, bool buying)

@@ -15,6 +15,12 @@ void MortgageCommand::execute() { game_.mortgage(district_); }
 
 void UnmortgageCommand::execute() { game_.unmortgage(district_); }
 
+void TradeCommand::execute() { game_.offerTrade(target_, give_, receive_); }
+
+void AcceptCommand::execute() { game_.acceptTrade(); }
+
+void RejectCommand::execute() { game_.rejectTrade(); }
+
 void UpgradeCommand::execute() {
     if (buying_) {
         game_.buyUpgrade(district_);

@@ -27,6 +27,17 @@ std::unique_ptr<Command> CommandParser::parse(Game &game, const std::string &lin
     if (word == "assets") return std::make_unique<AssetsCommand>(game);
     if (word == "all") return std::make_unique<AllCommand>(game);
 
+    if (word == "accept") return std::make_unique<AcceptCommand>(game);
+    if (word == "reject") return std::make_unique<RejectCommand>(game);
+
+    if (word == "trade") {
+        std::string target;
+        std::string give;
+        std::string receive;
+        if (!(input >> target >> give >> receive)) return nullptr;
+        return std::make_unique<TradeCommand>(game, target, give, receive);
+    }
+
     if (word == "upgrade") {
         std::string district;
         std::string action;

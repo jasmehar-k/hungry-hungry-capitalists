@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include <cassert>
+#include <cctype>
 #include <iostream>
 #include <sstream>
 #include <utility>
@@ -155,6 +156,18 @@ void Game::settleDebtIfPossible() {
     debtAmount_ = 0;
 }
 
+void Game::transferDistrict(OwnableDistrict &district, Player &to) {
+    district.setOwner(&to);
+    if (!district.isMortgaged()) return;
+    // Receiving a mortgaged district costs 10% of its printed value now; the
+    // later unmortgage still costs the full 60%.
+    const int fee = district.buyPrice() / 10;
+    to.addReagents(-fee);
+    treasury_ += fee;
+    std::cout << to.name() << " pays " << fee << " Reagents on the mortgaged "
+              << district.name() << '\n';
+}
+
 void Game::transferEverything(Player &from, Player &to) {
     to.addReagents(from.reagents());
     from.setReagents(0);
@@ -164,17 +177,23 @@ void Game::transferEverything(Player &from, Player &to) {
     for (int square = 0; square < Board::size(); ++square) {
         auto *ownable = dynamic_cast<OwnableDistrict *>(&board_.at(square));
         if (!ownable || ownable->owner() != &from) continue;
-        ownable->setOwner(&to);
-        if (ownable->isMortgaged()) {
-            // Receiving a mortgaged district costs 10% of its printed value now.
-            const int fee = ownable->buyPrice() / 10;
-            to.addReagents(-fee);
-            treasury_ += fee;
-            std::cout << to.name() << " pays " << fee << " Reagents on the mortgaged "
-                      << ownable->name() << '\n';
-        }
+        transferDistrict(*ownable, to);
     }
     std::cout << to.name() << " receives everything " << from.name() << " held\n";
+}
+
+bool Game::guildIsUnimproved(Guild guild) const {
+    if (guild == Guild::None) return true;  // Forges and Depots take no upgrades
+    for (int square = 0; square < Board::size(); ++square) {
+        const District &district = board_.at(square);
+        if (district.kind() != DistrictKind::Workshop || district.guild() != guild) continue;
+        if (district.upgradeCount() > 0) return false;
+    }
+    return true;
+}
+
+std::string Game::tradeTargetName() const {
+    return offer_.active && offer_.to != nullptr ? offer_.to->name() : std::string{};
 }
 
 void Game::releaseToMarket(Player &from) {
@@ -360,6 +379,158 @@ bool Game::sellUpgrade(const std::string &districtName) {
     // funds against an outstanding debt.
     settleDebtIfPossible();
     return true;
+}
+
+namespace {
+
+// A trade side is Reagents when it is all digits, and a district name
+// otherwise. The range check keeps a very long digit string from overflowing.
+bool parseReagents(const std::string &text, int &out) {
+    if (text.empty()) return false;
+    for (char character : text) {
+        if (!std::isdigit(static_cast<unsigned char>(character))) return false;
+    }
+    std::istringstream parsed{text};
+    long long value = 0;
+    if (!(parsed >> value) || value <= 0 || value > 1000000000LL) return false;
+    out = static_cast<int>(value);
+    return true;
+}
+
+std::string sideText(const OwnableDistrict *district, int reagents) {
+    return district != nullptr ? district->name() : std::to_string(reagents) + " Reagents";
+}
+
+}  // namespace
+
+bool Game::offerTrade(const std::string &targetName, const std::string &give,
+                      const std::string &receive) {
+    if (offer_.active) {
+        std::cout << "a trade offer is already awaiting an answer\n";
+        return false;
+    }
+
+    Player &from = currentPlayer();
+    Player *to = nullptr;
+    for (const auto &candidate : players_) {
+        if (candidate->name() == targetName && !candidate->isInsolvent()) {
+            to = candidate.get();
+        }
+    }
+    if (to == nullptr) {
+        std::cout << "there is no solvent Artificer called " << targetName << '\n';
+        return false;
+    }
+    if (to == &from) {
+        std::cout << "you cannot trade with yourself\n";
+        return false;
+    }
+
+    TradeOffer offer;
+    offer.from = &from;
+    offer.to = to;
+
+    const bool giveIsReagents = parseReagents(give, offer.giveReagents);
+    const bool receiveIsReagents = parseReagents(receive, offer.receiveReagents);
+    if (giveIsReagents && receiveIsReagents) {
+        std::cout << "a Reagent-for-Reagent trade is not allowed\n";
+        return false;
+    }
+
+    // Each side is validated against whoever is parting with it.
+    if (giveIsReagents) {
+        if (from.reagents() < offer.giveReagents) {
+            std::cout << from.name() << " does not hold " << offer.giveReagents
+                      << " Reagents\n";
+            return false;
+        }
+    } else {
+        offer.giveDistrict = board_.findOwnable(give);
+        if (offer.giveDistrict == nullptr) {
+            std::cout << "there is no ownable district called " << give << '\n';
+            return false;
+        }
+        if (offer.giveDistrict->owner() != &from) {
+            std::cout << offer.giveDistrict->name() << " is not yours to trade\n";
+            return false;
+        }
+        if (!guildIsUnimproved(offer.giveDistrict->guild())) {
+            std::cout << offer.giveDistrict->name()
+                      << " cannot be traded while its Guild holds upgrades\n";
+            return false;
+        }
+    }
+
+    if (receiveIsReagents) {
+        if (to->reagents() < offer.receiveReagents) {
+            std::cout << to->name() << " does not hold " << offer.receiveReagents
+                      << " Reagents\n";
+            return false;
+        }
+    } else {
+        offer.receiveDistrict = board_.findOwnable(receive);
+        if (offer.receiveDistrict == nullptr) {
+            std::cout << "there is no ownable district called " << receive << '\n';
+            return false;
+        }
+        if (offer.receiveDistrict->owner() != to) {
+            std::cout << offer.receiveDistrict->name() << " does not belong to " << to->name()
+                      << '\n';
+            return false;
+        }
+        if (!guildIsUnimproved(offer.receiveDistrict->guild())) {
+            std::cout << offer.receiveDistrict->name()
+                      << " cannot be traded while its Guild holds upgrades\n";
+            return false;
+        }
+    }
+
+    offer.active = true;
+    offer_ = offer;
+    turn_->enterTradeResponse();
+    std::cout << from.name() << " offers " << sideText(offer_.giveDistrict, offer_.giveReagents)
+              << " to " << to->name() << " for "
+              << sideText(offer_.receiveDistrict, offer_.receiveReagents) << '\n'
+              << to->name() << ": accept or reject\n";
+    return true;
+}
+
+void Game::acceptTrade() {
+    if (!offer_.active) {
+        std::cout << "there is no trade offer to answer\n";
+        return;
+    }
+    const TradeOffer offer = offer_;
+    offer_ = TradeOffer{};
+
+    if (offer.giveDistrict != nullptr) {
+        transferDistrict(*offer.giveDistrict, *offer.to);
+    } else {
+        offer.from->addReagents(-offer.giveReagents);
+        offer.to->addReagents(offer.giveReagents);
+    }
+
+    if (offer.receiveDistrict != nullptr) {
+        transferDistrict(*offer.receiveDistrict, *offer.from);
+    } else {
+        offer.to->addReagents(-offer.receiveReagents);
+        offer.from->addReagents(offer.receiveReagents);
+    }
+
+    std::cout << offer.to->name() << " accepts the trade\n";
+    turn_->resumeAfterTrade();
+    // Trading is one of the ways the spec lets an Artificer raise funds.
+    settleDebtIfPossible();
+}
+
+void Game::rejectTrade() {
+    if (!offer_.active) {
+        std::cout << "there is no trade offer to answer\n";
+        return;
+    }
+    std::cout << offer_.to->name() << " rejects the trade\n";
+    offer_ = TradeOffer{};
+    turn_->resumeAfterTrade();
 }
 
 std::size_t Game::solventCount() const {

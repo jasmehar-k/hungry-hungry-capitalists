@@ -38,6 +38,11 @@ public:
     TurnState *postRollState() const { return postRoll_.get(); }
     TurnState *lockupState() const { return lockup_.get(); }
 
+    // A trade may be offered before or after rolling, so the phase it
+    // interrupted is remembered and restored once the offer is answered.
+    void enterTradeResponse();
+    void resumeAfterTrade();
+
     Game &game() { return game_; }
 
     int consecutiveDoubles() const { return consecutiveDoubles_; }
@@ -49,7 +54,9 @@ private:
     std::unique_ptr<TurnState> preRoll_;
     std::unique_ptr<TurnState> postRoll_;
     std::unique_ptr<TurnState> lockup_;
-    TurnState *state_ = nullptr;  // non-owning view of one of the three above
+    std::unique_ptr<TurnState> awaitingTrade_;
+    TurnState *state_ = nullptr;   // non-owning view of one of the four above
+    TurnState *resume_ = nullptr;  // the phase a trade offer interrupted
     int consecutiveDoubles_ = 0;
 };
 
