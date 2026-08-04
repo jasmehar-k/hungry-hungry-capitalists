@@ -7,8 +7,8 @@
 // 200,000 outcomes from each table and compares observed frequencies against
 // the spec to within 0.004 (roughly nine standard deviations, so a correct
 // table never trips it and a transposed digit always does), then deals the
-// CardDeck through two full passes and requires each pass to match Table 3
-// exactly, card for card.
+// CardDeck through 100 consecutive passes and requires every pass to match
+// Table 3 exactly, card for card.
 
 #include <cmath>
 #include <cstddef>
@@ -53,12 +53,12 @@ void testEnchantmentTable(std::mt19937 &rng) {
     }
 }
 
-// One full pass of the deck must deal Table 3 exactly — that exactness is what
-// distinguishes a real deck from a reshuffled distribution. The second pass
-// proves the refill deals a full fresh deck rather than a partial one.
+// Every full pass of the deck must deal Table 3 exactly — that exactness is
+// what distinguishes a real deck from a reshuffled distribution. Passes after
+// the first prove each refill deals a full fresh deck rather than a partial one.
 void testDeckDealsTableExactly(std::mt19937 &rng) {
     CardDeck deck{rng};
-    for (int pass = 0; pass < 2; ++pass) {
+    for (int pass = 0; pass < 100; ++pass) {
         std::map<int, int> seen;
         for (std::size_t i = 0; i < CardDeck::size(); ++i) seen[deck.draw()]++;
         for (const EnchantmentOutcome &outcome : kEnchantmentTable) {

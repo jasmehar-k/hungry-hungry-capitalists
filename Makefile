@@ -14,15 +14,22 @@ $(EXEC): $(OBJECTS)
 # Auto-generated header dependencies, one .d per object.
 -include $(DEPS)
 
-# Statistical check of the probability tables and the shuffled deck. Lives in
-# tests/ so the wildcard above never links its main() into the game.
+# Test harnesses live in tests/ so the wildcard above never links their
+# main() into the game. tabletest checks the probability tables statistically;
+# gametest drives a headless Game over string streams.
+GAME_OBJECTS = $(filter-out main.o,$(OBJECTS))
+
 tabletest: tests/tabletest.cpp cards.o
 	$(CXX) $(CXXFLAGS) -I. tests/tabletest.cpp cards.o -o tabletest
 
+gametest: tests/gametest.cpp $(GAME_OBJECTS)
+	$(CXX) $(CXXFLAGS) -I. tests/gametest.cpp $(GAME_OBJECTS) -o gametest
+
 .PHONY: test
-test: tabletest
+test: tabletest gametest
 	./tabletest
+	./gametest
 
 .PHONY: clean
 clean:
-	rm -f $(OBJECTS) $(DEPS) $(EXEC) tabletest tabletest.d
+	rm -f $(OBJECTS) $(DEPS) $(EXEC) tabletest tabletest.d gametest gametest.d
