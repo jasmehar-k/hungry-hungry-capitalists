@@ -433,6 +433,23 @@ void Game::runAuction(OwnableDistrict &district) {
               << " Reagents\n";
 }
 
+int Game::totalFreePasses() const {
+    int total = 0;
+    for (const auto &player : players_) total += player->freePasses();
+    return total;
+}
+
+bool Game::tryGrantFreePass(Player &player) {
+    if (totalFreePasses() >= kMaxFreePassesInPlay) return false;
+
+    std::uniform_int_distribution<int> chance{1, 100};
+    if (chance(rng_) > kFreePassPercent) return false;
+
+    player.setFreePasses(player.freePasses() + 1);
+    std::cout << player.name() << " receives a Free-Pass Token\n";
+    return true;
+}
+
 std::string Game::prompt(const std::string &question) const {
     std::cout << question;
     std::cout.flush();

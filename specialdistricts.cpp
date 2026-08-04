@@ -4,6 +4,7 @@
 #include <string>
 
 #include "boarddata.h"
+#include "cards.h"
 #include "game.h"
 #include "player.h"
 
@@ -52,8 +53,44 @@ void MarketFestival::landOn(Game &, Player &visitor) {
     std::cout << visitor.name() << "'s cart is jostled by the festival crowds\n";
 }
 
-// TODO(cards step): redirect per Table 2, then resolve the destination.
-void WanderingMarket::landOn(Game &, Player &) {}
+// Markets sit at squares 5, 15, 28 and 36, more than three apart, so a move of
+// one to three can never land on another Market; the two absolute outcomes are
+// squares 0 and 10, which are not Markets either. No recursion guard is needed.
+void WanderingMarket::landOn(Game &game, Player &visitor) {
+    if (game.tryGrantFreePass(visitor)) return;
 
-// TODO(cards step): draw per Table 3, print the effect, then apply it.
-void EnchantmentDeck::landOn(Game &, Player &) {}
+    const MarketOutcome &outcome = drawMarketOutcome(game.rng());
+    std::cout << "a Wandering Market sends " << visitor.name() << ' ' << outcome.description
+              << '\n';
+
+    switch (outcome.move) {
+        case MarketMove::Back3: game.movePlayer(visitor, -3); return;
+        case MarketMove::Back2: game.movePlayer(visitor, -2); return;
+        case MarketMove::Back1: game.movePlayer(visitor, -1); return;
+        case MarketMove::Forward1: game.movePlayer(visitor, 1); return;
+        case MarketMove::Forward2: game.movePlayer(visitor, 2); return;
+        case MarketMove::Forward3: game.movePlayer(visitor, 3); return;
+        case MarketMove::ToLockup: game.sendToLockup(visitor); return;
+        case MarketMove::ToGrandEntrance:
+            // Moving forward to square 0 collects the bonus by the normal path
+            // rather than needing a special case here.
+            game.movePlayer(visitor, (kBoardSize - visitor.position()) % kBoardSize);
+            return;
+    }
+}
+
+void EnchantmentDeck::landOn(Game &game, Player &visitor) {
+    if (game.tryGrantFreePass(visitor)) return;
+
+    const EnchantmentOutcome &outcome = drawEnchantment(game.rng());
+    std::cout << visitor.name() << " draws an Enchantment card: "
+              << (outcome.change > 0 ? "+" : "") << outcome.change << " Reagents\n";
+
+    if (outcome.change < 0) {
+        // Routed through payTreasury so a loss the Artificer cannot cover
+        // becomes a debt rather than a negative balance.
+        game.payTreasury(visitor, -outcome.change);
+    } else {
+        visitor.addReagents(outcome.change);
+    }
+}

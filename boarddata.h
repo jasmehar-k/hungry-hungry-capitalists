@@ -26,6 +26,12 @@ inline constexpr int kTransitTollFee = 150;
 inline constexpr int kGuildLevyFlat = 300;
 inline constexpr int kGuildLevyPercent = 10;
 
+// A Free-Pass Token replaces the normal effect of a Wandering Market or
+// Enchantment Deck square, but only while fewer than four are in play across
+// all Artificers; at the cap the chance drops to zero.
+inline constexpr int kFreePassPercent = 1;
+inline constexpr int kMaxFreePassesInPlay = 4;
+
 enum class Guild { None, Ember, Smoke, Arcane, Gilded };
 
 enum class DistrictKind {

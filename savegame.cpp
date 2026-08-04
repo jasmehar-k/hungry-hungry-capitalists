@@ -14,7 +14,6 @@
 namespace {
 
 constexpr int kMortgagedMarker = -1;
-constexpr int kMaxFreePassesInPlay = 4;
 
 // The file separates its sections with blank lines, so every read skips them.
 bool nextLine(std::istream &in, std::string &line) {

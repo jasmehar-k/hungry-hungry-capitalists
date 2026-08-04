@@ -48,6 +48,9 @@ public:
     void endTurn();
 
     bool testingMode() const { return testingMode_; }
+    // The card squares draw from their own tables, so they need the generator
+    // that main seeded once at startup.
+    std::mt19937 &rng() { return rng_; }
     Dice &dice() { return dice_; }
     const Dice &dice() const { return dice_; }
     Turn &turn() { return *turn_; }
@@ -70,6 +73,12 @@ public:
     int countOwned(DistrictKind kind, const Player &owner) const;
     // Savings plus printed value of every district plus every upgrade bought.
     int totalWorth(const Player &player) const;
+
+    int totalFreePasses() const;
+    // The 1% draw that replaces a card square's normal effect. Returns false
+    // once four tokens are in play, which is the spec's hard cap. Both card
+    // squares call this, so the cap cannot drift between them.
+    bool tryGrantFreePass(Player &player);
 
     // Asks the user a question during a landing that requires a decision.
     std::string prompt(const std::string &question) const;
