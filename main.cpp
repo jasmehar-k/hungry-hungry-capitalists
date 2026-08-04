@@ -1,7 +1,12 @@
 #include <iostream>
+#include <memory>
 #include <random>
 #include <stdexcept>
 #include <string>
+
+#include "controller.h"
+#include "game.h"
+#include "textview.h"
 
 namespace {
 
@@ -49,8 +54,14 @@ int main(int argc, char *argv[]) {
     std::mt19937 rng{opts.seedGiven ? opts.seed : std::random_device{}()};
     static_cast<void>(rng);
 
-    std::cout << "ArcaneMarket\n";
-    if (!opts.loadFile.empty()) std::cout << "load: " << opts.loadFile << "\n";
-    if (opts.testing) std::cout << "testing mode\n";
-    if (opts.seedGiven) std::cout << "seed: " << opts.seed << "\n";
+    Game game{opts.testing};
+    auto controller = std::make_shared<GameController>(game);
+    TextView view{game, controller};
+
+    // TODO(next chunk): new-game setup, and -load to restore a saved game.
+    if (!opts.loadFile.empty()) {
+        std::cout << "loading is not implemented yet: " << opts.loadFile << "\n";
+    }
+
+    view.render(std::cout);
 }

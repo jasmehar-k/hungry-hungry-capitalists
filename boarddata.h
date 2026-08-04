@@ -95,6 +95,46 @@ inline constexpr std::array<DistrictSpec, kBoardSize> kBoard{{
     {39, "Apex", DistrictKind::Workshop, Guild::Gilded, 260, 200, {35, 175, 500, 1100, 1300, 1500}},
 }};
 
+// The table is easy to mistype and everything downstream trusts it, so its
+// shape is checked at compile time rather than by reading it again.
+constexpr int countKind(DistrictKind kind) {
+    int total = 0;
+    for (const DistrictSpec &spec : kBoard) {
+        if (spec.kind == kind) ++total;
+    }
+    return total;
+}
+
+constexpr int countGuild(Guild guild) {
+    int total = 0;
+    for (const DistrictSpec &spec : kBoard) {
+        if (spec.kind == DistrictKind::Workshop && spec.guild == guild) ++total;
+    }
+    return total;
+}
+
+constexpr bool squaresAreInOrder() {
+    for (std::size_t i = 0; i < kBoard.size(); ++i) {
+        if (kBoard[i].square != static_cast<int>(i)) return false;
+    }
+    return true;
+}
+
+static_assert(squaresAreInOrder(), "each entry must sit at its own square index");
+static_assert(countKind(DistrictKind::Workshop) == 16, "there are 16 Workshops");
+static_assert(countKind(DistrictKind::Forge) == 4, "Forges are 4, 18, 24 and 29");
+static_assert(countKind(DistrictKind::Depot) == 2, "Depots are 9 and 14");
+static_assert(countKind(DistrictKind::WanderingMarket) == 4, "4 Wandering Market squares");
+static_assert(countKind(DistrictKind::EnchantmentDeck) == 4, "4 Enchantment Deck squares");
+static_assert(countGuild(Guild::Ember) == 4, "Ember has 4 Workshops");
+static_assert(countGuild(Guild::Smoke) == 3, "Smoke has 3 Workshops");
+static_assert(countGuild(Guild::Arcane) == 4, "Arcane has 4 Workshops");
+static_assert(countGuild(Guild::Gilded) == 5, "Gilded has 5 Workshops");
+static_assert(kBoard[kGrandEntranceSquare].kind == DistrictKind::GrandEntrance, "sq 0");
+static_assert(kBoard[kLockupSquare].kind == DistrictKind::Lockup, "sq 10");
+static_assert(kBoard[kFreeRestSquare].kind == DistrictKind::FreeRest, "sq 20");
+static_assert(kBoard[kGoToLockupSquare].kind == DistrictKind::GoToLockup, "sq 30");
+
 // Forge levy by how many Forges the owner controls (1-based index into [1..4]).
 inline constexpr std::array<int, 5> kForgeLevy{0, 25, 50, 100, 200};
 
