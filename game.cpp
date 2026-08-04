@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <sstream>
 #include <utility>
 
 #include "boarddata.h"
@@ -142,6 +143,76 @@ int Game::totalWorth(const Player &player) const {
         }
     }
     return worth;
+}
+
+void Game::offerPurchase(OwnableDistrict &district, Player &buyer) {
+    const int price = district.buyPrice();
+    std::cout << district.name() << " is unowned, " << price << " Reagents\n";
+
+    if (buyer.reagents() >= price) {
+        const std::string answer = prompt("buy it? [yes/no] ");
+        if (answer == "yes" || answer == "y") {
+            buyer.addReagents(-price);
+            district.setOwner(&buyer);
+            std::cout << buyer.name() << " buys " << district.name() << " for " << price
+                      << " Reagents\n";
+            return;
+        }
+    } else {
+        std::cout << buyer.name() << " cannot afford " << district.name() << '\n';
+    }
+
+    runAuction(district);
+}
+
+void Game::runAuction(OwnableDistrict &district) {
+    std::vector<Player *> active;
+    for (const auto &player : players_) {
+        if (!player->isInsolvent()) active.push_back(player.get());
+    }
+    if (active.size() < 2) return;
+
+    std::cout << "the Guild auctions " << district.name() << '\n';
+    int highest = 0;
+    Player *leader = nullptr;
+    std::size_t index = 0;
+
+    while (active.size() > 1) {
+        Player *bidder = active[index];
+        std::ostringstream question;
+        question << bidder->name() << " holds " << bidder->reagents() << ", current bid "
+                 << highest << " - raise or withdraw? [amount/withdraw] ";
+        const std::string answer = prompt(question.str());
+
+        // A blank answer, including end of input, counts as withdrawing, so a
+        // closed stream can never leave the auction spinning.
+        if (answer == "withdraw" || answer == "w" || answer.empty()) {
+            std::cout << bidder->name() << " withdraws\n";
+            active.erase(active.begin() + static_cast<std::ptrdiff_t>(index));
+            if (index >= active.size()) index = 0;
+            continue;
+        }
+
+        int bid = 0;
+        std::istringstream parsed{answer};
+        if (!(parsed >> bid) || bid <= highest || bid > bidder->reagents()) {
+            std::cout << "a raise must beat " << highest << " and be within your Reagents\n";
+            continue;  // the same Artificer tries again
+        }
+        highest = bid;
+        leader = bidder;
+        index = (index + 1) % active.size();
+    }
+
+    if (leader == nullptr) {
+        // Everyone withdrew without bidding, so nothing changes hands.
+        std::cout << "no bids were made; " << district.name() << " stays with the Guild\n";
+        return;
+    }
+    leader->addReagents(-highest);
+    district.setOwner(leader);
+    std::cout << leader->name() << " wins " << district.name() << " for " << highest
+              << " Reagents\n";
 }
 
 std::string Game::prompt(const std::string &question) const {

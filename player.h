@@ -51,6 +51,11 @@ public:
     int freePasses() const { return freePasses_; }
     void setFreePasses(int count) { freePasses_ = count; }
 
+    // An insolvent Artificer is out of the game but stays in the roster so
+    // that districts loaded under their name still resolve.
+    bool isInsolvent() const { return insolvent_; }
+    void declareInsolvent() { insolvent_ = true; }
+
     bool inLockup() const { return inLockup_; }
     int lockupTurns() const { return lockupTurns_; }
     void sendToLockup();
@@ -67,6 +72,7 @@ private:
     int freePasses_ = 0;
     bool inLockup_ = false;
     int lockupTurns_ = 0;
+    bool insolvent_ = false;
 };
 
 #endif  // PLAYER_H

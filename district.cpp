@@ -20,8 +20,7 @@ char OwnableDistrict::ownerInitial() const {
 // Only computeToll varies between Workshops, Forges and Depots.
 void OwnableDistrict::landOn(Game &game, Player &visitor) {
     if (owner_ == nullptr) {
-        // TODO(buying step): offer the purchase, then auction on a decline.
-        std::cout << name() << " is unowned, " << buyPrice_ << " Reagents\n";
+        game.offerPurchase(*this, visitor);
         return;
     }
     if (owner_ == &visitor) return;  // an Artificer never tolls themselves

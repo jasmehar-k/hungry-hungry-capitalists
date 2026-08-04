@@ -11,6 +11,7 @@
 #include "dice.h"
 #include "observer.h"
 
+class OwnableDistrict;
 class Player;
 class Turn;
 
@@ -68,6 +69,11 @@ public:
 
     // Asks the user a question during a landing that requires a decision.
     std::string prompt(const std::string &question) const;
+
+    // Offers an unowned district to whoever landed on it; a decline, or an
+    // Artificer who cannot afford it, sends the district to auction.
+    void offerPurchase(OwnableDistrict &district, Player &buyer);
+    void runAuction(OwnableDistrict &district);
 
 private:
     Board board_;
