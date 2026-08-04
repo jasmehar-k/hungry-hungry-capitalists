@@ -31,6 +31,7 @@ public:
     const Player &currentPlayer() const;
     Player &currentPlayer();
     std::size_t currentPlayerIndex() const { return current_; }
+    void setCurrentPlayer(std::size_t index);
     void endTurn();
 
     bool testingMode() const { return testingMode_; }

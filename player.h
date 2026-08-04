@@ -1,8 +1,10 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
+#include <array>
 #include <cstddef>
 #include <string>
+#include <string_view>
 
 inline constexpr int kStartingReagents = 1500;
 inline constexpr int kMaxLockupTurns = 3;
@@ -11,6 +13,26 @@ inline constexpr int kMaxLockupTurns = 3;
 // the spec caps play at six Artificers.
 inline constexpr std::size_t kMinPlayers = 2;
 inline constexpr std::size_t kMaxPlayers = 6;
+
+// The six tokens an Artificer may choose; only one Artificer may hold each.
+struct TokenChoice {
+    char symbol;
+    std::string_view name;
+};
+
+inline constexpr std::array<TokenChoice, kMaxPlayers> kTokens{{{'G', "Gryphon"},
+                                                              {'O', "Golem"},
+                                                              {'X', "Sphinx"},
+                                                              {'W', "Wyvern"},
+                                                              {'A', "Archmage"},
+                                                              {'P', "Apprentice"}}};
+
+inline constexpr bool isValidToken(char symbol) {
+    for (const TokenChoice &choice : kTokens) {
+        if (choice.symbol == symbol) return true;
+    }
+    return false;
+}
 
 class Player {
 public:
@@ -21,6 +43,7 @@ public:
 
     int reagents() const { return reagents_; }
     void addReagents(int amount) { reagents_ += amount; }
+    void setReagents(int amount) { reagents_ = amount; }
 
     int position() const { return position_; }
     void setPosition(int square) { position_ = square; }
@@ -33,6 +56,8 @@ public:
     void sendToLockup();
     void releaseFromLockup();
     void serveLockupTurn() { ++lockupTurns_; }
+    // Restores Lockup state verbatim when loading a saved game.
+    void setLockupState(bool detained, int turnsServed);
 
 private:
     std::string name_;

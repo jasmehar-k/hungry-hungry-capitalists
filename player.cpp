@@ -17,3 +17,8 @@ void Player::releaseFromLockup() {
     inLockup_ = false;
     lockupTurns_ = 0;
 }
+
+void Player::setLockupState(bool detained, int turnsServed) {
+    inLockup_ = detained;
+    lockupTurns_ = detained ? turnsServed : 0;
+}

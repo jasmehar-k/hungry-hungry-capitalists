@@ -37,6 +37,12 @@ const Player &Game::currentPlayer() const { return player(current_); }
 
 Player &Game::currentPlayer() { return player(current_); }
 
+void Game::setCurrentPlayer(std::size_t index) {
+    assert(index < players_.size());
+    current_ = index;
+    notifyObservers();
+}
+
 void Game::endTurn() {
     if (players_.empty()) return;
     current_ = (current_ + 1) % players_.size();

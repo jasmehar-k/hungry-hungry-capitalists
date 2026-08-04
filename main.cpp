@@ -6,6 +6,8 @@
 
 #include "controller.h"
 #include "game.h"
+#include "savegame.h"
+#include "setup.h"
 #include "textview.h"
 
 namespace {
@@ -55,13 +57,26 @@ int main(int argc, char *argv[]) {
     static_cast<void>(rng);
 
     Game game{opts.testing};
-    auto controller = std::make_shared<GameController>(game);
-    TextView view{game, controller};
 
-    // TODO(next chunk): new-game setup, and -load to restore a saved game.
     if (!opts.loadFile.empty()) {
-        std::cout << "loading is not implemented yet: " << opts.loadFile << "\n";
+        std::string error;
+        if (!SaveGame::load(game, opts.loadFile, error)) {
+            std::cerr << "could not load " << opts.loadFile << ": " << error << "\n";
+            return 1;
+        }
+    } else if (!Setup::runNewGame(game, std::cin, std::cout)) {
+        std::cerr << "setup abandoned\n";
+        return 1;
     }
 
+    // The view attaches only once the roster is settled: it observes the Game,
+    // and attaching earlier would redraw the board once per Artificer added.
+    auto controller = std::make_shared<GameController>(game);
+    TextView view{game, controller};
     view.render(std::cout);
+
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        view.handleInput(line);
+    }
 }
