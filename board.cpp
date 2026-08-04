@@ -4,11 +4,17 @@
 
 #include "district.h"
 #include "districtfactory.h"
+#include "workshop.h"
 
 Board::Board() {
     districts_.reserve(kBoard.size());
     for (const DistrictSpec &spec : kBoard) {
         districts_.push_back(DistrictFactory::create(spec));
+        // The one place districts are classified by concrete type. Everything
+        // downstream iterates this list rather than casting board squares.
+        if (auto *ownable = dynamic_cast<OwnableDistrict *>(districts_.back().get())) {
+            ownables_.push_back(ownable);
+        }
     }
 }
 
@@ -37,12 +43,21 @@ int Board::grandEntrancePasses(int from, int steps) {
     return (from + steps) / kBoardSize;
 }
 
+std::vector<const OwnableDistrict *> Board::ownables() const {
+    return {ownables_.begin(), ownables_.end()};
+}
+
 OwnableDistrict *Board::findOwnable(const std::string &name) {
-    for (const auto &district : districts_) {
-        if (district->name() != name) continue;
-        if (auto *ownable = dynamic_cast<OwnableDistrict *>(district.get())) {
-            return ownable;
-        }
+    for (OwnableDistrict *ownable : ownables_) {
+        if (ownable->name() == name) return ownable;
     }
     return nullptr;
+}
+
+Workshop *Board::findWorkshop(const std::string &name) {
+    OwnableDistrict *ownable = findOwnable(name);
+    if (ownable == nullptr || ownable->kind() != DistrictKind::Workshop) return nullptr;
+    // The kind check makes this downcast safe; it is the only one outside the
+    // constructor's classification pass.
+    return static_cast<Workshop *>(ownable);
 }

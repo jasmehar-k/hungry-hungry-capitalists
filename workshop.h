@@ -17,6 +17,7 @@ public:
     int upgradeCount() const override { return upgrades_; }
     void setUpgrades(int count) { upgrades_ = count; }
     int upgradeCost() const { return upgradeCost_; }
+    int upgradeInvestment() const override { return upgrades_ * upgradeCost_; }
     int tollAt(int level) const;
 
 protected:

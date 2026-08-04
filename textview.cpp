@@ -137,8 +137,8 @@ std::array<std::string, kCellLines> TextView::renderCell(const District &distric
     }
 
     std::string price;
-    if (const auto *ownable = dynamic_cast<const OwnableDistrict *>(&district)) {
-        price = std::to_string(ownable->buyPrice());
+    if (district.buyPrice() > 0) {
+        price = std::to_string(district.buyPrice());
     }
 
     const auto [firstLine, secondLine] = wrapName(district.name(), kCellWidth);

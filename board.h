@@ -9,6 +9,7 @@
 
 class District;
 class OwnableDistrict;
+class Workshop;
 
 // The circuit. Owns all 40 districts and hands out references to them.
 // Play runs clockwise: square index increasing, wrapping 39 -> 0.
@@ -39,12 +40,21 @@ public:
         return grandEntrancePasses(from, steps) > 0;
     }
 
+    // The 22 ownable districts in circuit order, classified once at
+    // construction. Every sweep over ownership walks this list instead of
+    // re-discovering which squares are ownable by casting.
+    const std::vector<OwnableDistrict *> &ownables() { return ownables_; }
+    std::vector<const OwnableDistrict *> ownables() const;
+
     // Ownable district names are unique across the circuit, so this is the
     // lookup the save file and the district-naming commands need.
     OwnableDistrict *findOwnable(const std::string &name);
+    // Null when the name is unknown or names a Forge or Depot.
+    Workshop *findWorkshop(const std::string &name);
 
 private:
     std::vector<std::unique_ptr<District>> districts_;
+    std::vector<OwnableDistrict *> ownables_;  // non-owning views into districts_
 };
 
 #endif  // BOARD_H

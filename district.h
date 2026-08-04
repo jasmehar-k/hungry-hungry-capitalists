@@ -23,10 +23,12 @@ public:
     virtual Guild guild() const { return Guild::None; }
     virtual bool isOwnable() const { return false; }
 
-    // Display hooks. Non-ownable districts keep the defaults.
+    // Display hooks. Non-ownable districts keep the defaults, so no caller
+    // ever needs to cast a square just to draw it.
     virtual char ownerInitial() const { return ' '; }
     virtual int upgradeCount() const { return 0; }
     virtual bool isMortgaged() const { return false; }
+    virtual int buyPrice() const { return 0; }
 
     virtual void landOn(Game &game, Player &visitor) = 0;
 
@@ -54,7 +56,11 @@ public:
     void setMortgaged(bool mortgaged) { mortgaged_ = mortgaged; }
 
     char ownerInitial() const override;
-    int buyPrice() const { return buyPrice_; }
+    int buyPrice() const override { return buyPrice_; }
+
+    // Printed cost of every upgrade bought here; the Guild Levy counts it as
+    // part of an Artificer's worth. Forges and Depots take no upgrades.
+    virtual int upgradeInvestment() const { return 0; }
 
 protected:
     OwnableDistrict(int square, std::string name, int buyPrice);

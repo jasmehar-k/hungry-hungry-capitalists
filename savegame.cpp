@@ -43,16 +43,6 @@ struct DistrictRecord {
     int upgrades = 0;
 };
 
-std::vector<const OwnableDistrict *> ownablesInOrder(const Board &board) {
-    std::vector<const OwnableDistrict *> result;
-    for (int square = 0; square < Board::size(); ++square) {
-        if (const auto *ownable = dynamic_cast<const OwnableDistrict *>(&board.at(square))) {
-            result.push_back(ownable);
-        }
-    }
-    return result;
-}
-
 bool parsePlayer(const std::string &line, PlayerRecord &record, std::string &error) {
     std::istringstream input{line};
     if (!(input >> record.name >> record.token >> record.freePasses >> record.reagents >>
@@ -156,7 +146,9 @@ bool SaveGame::load(Game &game, const std::string &filename, std::string &error)
         return false;
     }
 
-    const std::vector<const OwnableDistrict *> expected = ownablesInOrder(game.board());
+    // The board's registry is already in circuit order, which is the order the
+    // save format requires.
+    const std::vector<OwnableDistrict *> &expected = game.board().ownables();
     std::vector<DistrictRecord> districts;
     for (const OwnableDistrict *ownable : expected) {
         if (!nextLine(in, line)) {
@@ -221,7 +213,7 @@ bool SaveGame::load(Game &game, const std::string &filename, std::string &error)
             }
         }
         ownable->setMortgaged(record.upgrades == kMortgagedMarker);
-        if (auto *workshop = dynamic_cast<Workshop *>(ownable)) {
+        if (Workshop *workshop = game.board().findWorkshop(record.name)) {
             workshop->setUpgrades(record.upgrades == kMortgagedMarker ? 0 : record.upgrades);
         }
     }
@@ -252,7 +244,7 @@ bool SaveGame::save(const Game &game, const std::string &filename) {
     }
 
     out << '\n';
-    for (const OwnableDistrict *ownable : ownablesInOrder(game.board())) {
+    for (const OwnableDistrict *ownable : game.board().ownables()) {
         out << ownable->name() << ' '
             << (ownable->owner() ? ownable->owner()->name() : "GUILD") << ' '
             << (ownable->isMortgaged() ? kMortgagedMarker : ownable->upgradeCount()) << '\n';

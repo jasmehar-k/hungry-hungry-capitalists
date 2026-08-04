@@ -267,9 +267,8 @@ void Game::transferEverything(Player &from, Player &to) {
     from.setFreePasses(0);
 
     int fees = 0;
-    for (int square = 0; square < Board::size(); ++square) {
-        auto *ownable = dynamic_cast<OwnableDistrict *>(&board_.at(square));
-        if (!ownable || ownable->owner() != &from) continue;
+    for (OwnableDistrict *ownable : board_.ownables()) {
+        if (ownable->owner() != &from) continue;
         fees += transferDistrict(*ownable, to);
     }
     out_ << to.name() << " receives everything " << from.name() << " held\n";
@@ -285,10 +284,9 @@ void Game::transferEverything(Player &from, Player &to) {
 
 bool Game::guildIsUnimproved(Guild guild) const {
     if (guild == Guild::None) return true;  // Forges and Depots take no upgrades
-    for (int square = 0; square < Board::size(); ++square) {
-        const District &district = board_.at(square);
-        if (district.kind() != DistrictKind::Workshop || district.guild() != guild) continue;
-        if (district.upgradeCount() > 0) return false;
+    for (const OwnableDistrict *ownable : board_.ownables()) {
+        if (ownable->kind() != DistrictKind::Workshop || ownable->guild() != guild) continue;
+        if (ownable->upgradeCount() > 0) return false;
     }
     return true;
 }
@@ -304,9 +302,8 @@ void Game::releaseToMarket(Player &from) {
     from.setFreePasses(0);
 
     std::vector<OwnableDistrict *> released;
-    for (int square = 0; square < Board::size(); ++square) {
-        auto *ownable = dynamic_cast<OwnableDistrict *>(&board_.at(square));
-        if (!ownable || ownable->owner() != &from) continue;
+    for (OwnableDistrict *ownable : board_.ownables()) {
+        if (ownable->owner() != &from) continue;
         ownable->setOwner(nullptr);
         ownable->setMortgaged(false);  // they return to the open market unmortgaged
         released.push_back(ownable);
@@ -419,7 +416,7 @@ Workshop *findUpgradableWorkshop(Board &board, Player &player, const std::string
         out << "there is no ownable district called " << name << '\n';
         return nullptr;
     }
-    auto *workshop = dynamic_cast<Workshop *>(district);
+    Workshop *workshop = board.findWorkshop(name);
     if (workshop == nullptr) {
         out << district->name() << " is not a Workshop, so it takes no upgrades\n";
         return nullptr;
@@ -696,9 +693,8 @@ const Player *Game::winner() const {
 void Game::printAssets(const Player &player) const {
     out_ << player.name() << " (" << player.token() << ") holds " << player.reagents()
               << " Reagents, " << player.freePasses() << " Free-Pass Tokens\n";
-    for (int square = 0; square < Board::size(); ++square) {
-        const auto *ownable = dynamic_cast<const OwnableDistrict *>(&board_.at(square));
-        if (!ownable || ownable->owner() != &player) continue;
+    for (const OwnableDistrict *ownable : board_.ownables()) {
+        if (ownable->owner() != &player) continue;
         out_ << "  " << ownable->name();
         if (ownable->isMortgaged()) {
             out_ << " (mortgaged)";
@@ -722,11 +718,9 @@ void Game::printAllAssets() const {
 bool Game::guildComplete(Guild guild, const Player &owner) const {
     int inGuild = 0;
     int held = 0;
-    for (int square = 0; square < Board::size(); ++square) {
-        const District &district = board_.at(square);
-        if (district.kind() != DistrictKind::Workshop || district.guild() != guild) continue;
+    for (const OwnableDistrict *ownable : board_.ownables()) {
+        if (ownable->kind() != DistrictKind::Workshop || ownable->guild() != guild) continue;
         ++inGuild;
-        const auto *ownable = static_cast<const OwnableDistrict *>(&district);
         if (ownable->owner() == &owner) ++held;
     }
     return inGuild > 0 && inGuild == held;
@@ -734,24 +728,17 @@ bool Game::guildComplete(Guild guild, const Player &owner) const {
 
 int Game::countOwned(DistrictKind kind, const Player &owner) const {
     int total = 0;
-    for (int square = 0; square < Board::size(); ++square) {
-        const District &district = board_.at(square);
-        if (district.kind() != kind) continue;
-        const auto *ownable = dynamic_cast<const OwnableDistrict *>(&district);
-        if (ownable && ownable->owner() == &owner) ++total;
+    for (const OwnableDistrict *ownable : board_.ownables()) {
+        if (ownable->kind() == kind && ownable->owner() == &owner) ++total;
     }
     return total;
 }
 
 int Game::totalWorth(const Player &player) const {
     int worth = player.reagents();
-    for (int square = 0; square < Board::size(); ++square) {
-        const auto *ownable = dynamic_cast<const OwnableDistrict *>(&board_.at(square));
-        if (!ownable || ownable->owner() != &player) continue;
-        worth += ownable->buyPrice();
-        if (const auto *workshop = dynamic_cast<const Workshop *>(ownable)) {
-            worth += workshop->upgradeCount() * workshop->upgradeCost();
-        }
+    for (const OwnableDistrict *ownable : board_.ownables()) {
+        if (ownable->owner() != &player) continue;
+        worth += ownable->buyPrice() + ownable->upgradeInvestment();
     }
     return worth;
 }
