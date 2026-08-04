@@ -47,7 +47,7 @@ config:
     hideEmptyMembersBox: true
 ---
 classDiagram
-    direction TB
+    direction LR
 
     class Subject { <<abstract>> }
     class Observer { <<abstract>> }
@@ -205,7 +205,7 @@ config:
     hideEmptyMembersBox: true
 ---
 classDiagram
-    direction TB
+    direction LR
 
     class District {
         <<abstract>>
@@ -392,7 +392,7 @@ config:
     hideEmptyMembersBox: true
 ---
 classDiagram
-    direction TB
+    direction LR
 
     class GameController {
         <<Invoker>>

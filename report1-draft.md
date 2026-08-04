@@ -24,8 +24,8 @@ Source in `uml.md`, rendered images in `diagrams/uml-1.png` … `uml-8.png`.
 | Figure | Subject |
 |---|---|
 | `uml-1.png` | **Master class diagram** — every class, names and relationships only |
-| `uml-2.png` | District hierarchy and Template Method |
-| `uml-3.png` | MVC + Observer |
+| `uml-2.png` | MVC + Observer |
+| `uml-3.png` | District hierarchy and Template Method |
 | `uml-4.png` | State — `Turn` and its four phases |
 | `uml-5.png` | State — phase transitions (state diagram) |
 | `uml-6.png` | Command — all thirteen commands |
