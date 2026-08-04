@@ -261,32 +261,31 @@ creator hierarchy — precisely the structural difference between the two.
 > *After reading the Districts subsection of the specification, would the Observer Pattern be a
 > good pattern to use when implementing the Circuit Board? Why or why not?*
 
-Yes, and it is used. **The Subject is `Game`** — the Model owning the board, the players and the
-turn — and **the Observer is `TextView`**. Districts are deliberately *not* Subjects. A
-per-district Subject would let one square announce its own change, but the spec redraws the
-**entire** board after every command, so there is no partial repaint for that finer granularity to
-optimise; it would add an observer list to all forty districts to trigger the same full redraw.
+Yes, and it is used — with a caveat worth stating plainly. **The Subject is `Game`**, the Model
+owning the board, the players and the turn; **the Observer is `TextView`**. Districts are
+deliberately *not* Subjects: the spec redraws the **entire** board after every command, so
+per-district notification would add an observer list to all forty districts in order to trigger
+the same full redraw.
 
-**The event that triggers notification is the completion of a command**, not an individual field
-write. This was a deliberate departure from Chapter 17, which notifies at the end of every mutating
-method. One command can move an Artificer, pay a toll, transfer a district and change the turn
-phase; notifying per mutation redrew the board four times for one command. Notification therefore
-fires once, from `GameController::handleCommand`.
+**The triggering event is the completion of a command**, not an individual field write. This
+departs from Chapter 17, which notifies at the end of every mutating method. One command can move
+an Artificer, pay a toll, transfer a district and change the turn phase; notifying per mutation
+redrew the board four times for one command, and printed six boards during six-player setup.
+Notification therefore fires once, from `GameController::handleCommand`.
 
-**Compared with direct method calls, the honest answer is that Observer is not clearly better for
-this program as submitted.** There is one view, one subject, and one call site, so
-`notifyObservers()` iterates a single-element vector; a direct `view.render()` from the same place
-in the Controller would be behaviourally identical and simpler. Claiming Observer earns its keep
-here would be arguing from a graphical display that was never built, which is speculative
-generality rather than design.
+**Compared with direct method calls, Observer is not clearly better here.** There is one view, one
+Subject and one call site, so `notifyObservers()` iterates a single-element vector; a direct
+`view.render()` from that same place would be behaviourally identical and simpler. Arguing
+otherwise would mean arguing from a graphical display that was never built.
 
-What Observer buys is narrower and worth stating precisely: the Model never names a concrete View.
-That is optionality against an extension the specification itself lists, not a benefit realised
-today, and it costs 45 lines. Whether that trade is right is genuinely arguable — a reviewer
-applying YAGNI strictly would call it over-built, and I would not dispute the reasoning, only the
-conclusion. What is *not* arguable is the separation underneath it: rendering the board is 200
-lines of geometry with no rules in it, and the rules are exercised headless by the test harness.
-That split is justified whether or not the notification between them goes through Observer.
+What Observer actually buys is narrower: the Model never names a concrete View. That is optionality
+against an extension the specification itself lists, not value realised today, and it costs 45
+lines. A reviewer applying YAGNI strictly would call it over-built, and I would dispute the
+conclusion rather than the reasoning.
+
+What is *not* arguable is the separation underneath it. Rendering the board is 200 lines of
+geometry containing no game rules, and the rules are exercised headless by the test harness. That
+split is justified whether or not the notification between the two goes through Observer.
 
 ### Design Question 2 — Card-Deck Mechanics for Wandering Market and Enchantment Deck
 
