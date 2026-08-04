@@ -61,7 +61,7 @@ void Game::endTurn() {
     if (players_.empty() || solventCount() == 0) return;
     // Only the current Artificer's own debt blocks their turn; one parked
     // against someone else is settled when that Artificer's turn comes round.
-    if (hasPendingDebt() && debtor_ == &currentPlayer()) {
+    if (owes(currentPlayer())) {
         std::cout << "settle the debt or declare insolvency before ending your turn\n";
         return;
     }
@@ -144,16 +144,38 @@ bool Game::forceLockupExit(Player &player) {
     // blocks the turn until they raise funds or declare insolvency.
     const int moveOncePaid = dice_.total();
     payTreasury(player, kLockupFine);
-    if (hasPendingDebt()) {
+    if (owes(player)) {
         // The fine is owed but unpayable. Settling it later must still release
-        // them and move this roll, so remember both.
-        lockupFinePending_ = true;
-        lockupFineMove_ = moveOncePaid;
+        // them and move this roll, so tag the debt with both.
+        Debt &debt = debts_[&player];
+        debt.fromLockupFine = true;
+        debt.lockupMove = moveOncePaid;
         return false;
     }
 
     player.releaseFromLockup();
     return true;
+}
+
+bool Game::owes(const Player &player) const {
+    return debts_.find(const_cast<Player *>(&player)) != debts_.end();
+}
+
+int Game::amountOwed(const Player &player) const {
+    const auto found = debts_.find(const_cast<Player *>(&player));
+    return found == debts_.end() ? 0 : found->second.amount;
+}
+
+void Game::addDebt(Player &debtor, Player *creditor, int amount) {
+    Debt &debt = debts_[&debtor];
+    if (debt.amount == 0) {
+        debt.creditor = creditor;
+    }
+    // A second debt for the same Artificer can only arise from repeated
+    // insolvency fees, which are always owed to the Treasury, because an
+    // Artificer who owes anything is barred from rolling. Amounts therefore
+    // accumulate and the original creditor stands.
+    debt.amount += amount;
 }
 
 void Game::payTreasury(Player &player, int amount) {
@@ -164,10 +186,8 @@ void Game::payTreasury(Player &player, int amount) {
         std::cout << player.name() << " pays " << amount << " Reagents to the Guild Treasury\n";
         return;
     }
-    debtor_ = &player;
-    creditor_ = nullptr;
-    debtAmount_ = amount;
-    std::cout << player.name() << " owes " << amount
+    addDebt(player, nullptr, amount);
+    std::cout << player.name() << " owes " << amountOwed(player)
               << " Reagents to the Guild Treasury but holds only " << player.reagents()
               << "\nraise funds by mortgaging, or use the insolvent command\n";
 }
@@ -180,41 +200,48 @@ void Game::payPlayer(Player &from, Player &to, int amount) {
         std::cout << from.name() << " pays " << amount << " Reagents to " << to.name() << '\n';
         return;
     }
-    debtor_ = &from;
-    creditor_ = &to;
-    debtAmount_ = amount;
-    std::cout << from.name() << " owes " << amount << " Reagents to " << to.name()
+    addDebt(from, &to, amount);
+    std::cout << from.name() << " owes " << amountOwed(from) << " Reagents to " << to.name()
               << " but holds only " << from.reagents()
               << "\nraise funds by mortgaging, or use the insolvent command\n";
 }
 
 void Game::settleDebtIfPossible() {
-    if (!hasPendingDebt()) return;
-    if (debtor_->reagents() < debtAmount_) return;
+    // Settling one debt can hand Reagents to a creditor who is themselves in
+    // debt, so this repeats until no further debt can be covered. The entry is
+    // erased before anything that could touch the map runs, because completing
+    // a Lockup exit moves an Artificer and may create a fresh debt.
+    while (true) {
+        Player *ready = nullptr;
+        for (const auto &entry : debts_) {
+            if (entry.first->reagents() >= entry.second.amount) {
+                ready = entry.first;
+                break;
+            }
+        }
+        if (ready == nullptr) return;
 
-    Player &settled = *debtor_;
-    if (creditor_ != nullptr) {
-        settled.addReagents(-debtAmount_);
-        creditor_->addReagents(debtAmount_);
-        std::cout << settled.name() << " settles " << debtAmount_ << " Reagents with "
-                  << creditor_->name() << '\n';
-    } else {
-        settled.addReagents(-debtAmount_);
-        treasury_ += debtAmount_;
-        std::cout << settled.name() << " settles " << debtAmount_
-                  << " Reagents with the Guild Treasury\n";
-    }
-    debtor_ = nullptr;
-    creditor_ = nullptr;
-    debtAmount_ = 0;
+        Player &settled = *ready;
+        const Debt debt = debts_[ready];
+        debts_.erase(ready);
 
-    // A settled Lockup fine has bought the exit it was owed for: release the
-    // Artificer and make the move that the unpaid fine had held up.
-    if (lockupFinePending_) {
-        lockupFinePending_ = false;
-        settled.releaseFromLockup();
-        std::cout << settled.name() << " leaves The Lockup\n";
-        movePlayer(settled, lockupFineMove_);
+        settled.addReagents(-debt.amount);
+        if (debt.creditor != nullptr) {
+            debt.creditor->addReagents(debt.amount);
+            std::cout << settled.name() << " settles " << debt.amount << " Reagents with "
+                      << debt.creditor->name() << '\n';
+        } else {
+            treasury_ += debt.amount;
+            std::cout << settled.name() << " settles " << debt.amount
+                      << " Reagents with the Guild Treasury\n";
+        }
+
+        // A settled Lockup fine has bought the exit it was owed for.
+        if (debt.fromLockupFine) {
+            settled.releaseFromLockup();
+            std::cout << settled.name() << " leaves The Lockup\n";
+            movePlayer(settled, debt.lockupMove);
+        }
     }
 }
 
@@ -288,23 +315,22 @@ void Game::releaseToMarket(Player &from) {
 void Game::declareInsolvency() {
     // Guarded on the current Artificer so a debt parked against someone else
     // cannot be declared away on their behalf.
-    if (!hasPendingDebt() || debtor_ != &currentPlayer()) {
+    Player &debtor = currentPlayer();
+    const auto owed = debts_.find(&debtor);
+    if (owed == debts_.end()) {
         std::cout << "you may only declare insolvency when you owe more than you hold\n";
         return;
     }
-    Player &debtor = *debtor_;
-    if (debtor.reagents() >= debtAmount_) {
+    if (debtor.reagents() >= owed->second.amount) {
         std::cout << "you can cover this debt, so insolvency is not available\n";
         return;
     }
 
     std::cout << debtor.name() << " declares insolvency\n";
-    Player *creditor = creditor_;
-    debtor_ = nullptr;
-    creditor_ = nullptr;
-    debtAmount_ = 0;
-    // Any half-finished Lockup exit dies with the Artificer who owed it.
-    lockupFinePending_ = false;
+    // Erasing the entry also discards any half-finished Lockup exit, which
+    // dies with the Artificer who owed for it.
+    Player *creditor = owed->second.creditor;
+    debts_.erase(owed);
     debtor.declareInsolvent();
 
     if (creditor != nullptr) {

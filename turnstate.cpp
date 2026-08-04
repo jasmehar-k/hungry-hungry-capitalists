@@ -25,14 +25,26 @@ void announceRoll(const Game &game) {
               << dice.second() << " (" << dice.total() << ")\n";
 }
 
+// The spec resolves a shortfall on the spot: raise funds or declare
+// insolvency. Barring a roll while a debt stands keeps that promise, and is
+// what stops one Artificer from stacking up two separate obligations.
+bool blockedByDebt(Game &game, const Player &player) {
+    if (!game.owes(player)) return false;
+    std::cout << "settle your debt of " << game.amountOwed(player)
+              << " Reagents or declare insolvency before rolling\n";
+    return true;
+}
+
 }  // namespace
 
 void PreRollState::roll(int die1, int die2) {
     Game &game = turn_.game();
+    Player &player = game.currentPlayer();
+    if (blockedByDebt(game, player)) return;
+
     applyRoll(game, die1, die2);
     announceRoll(game);
 
-    Player &player = game.currentPlayer();
     const Dice &dice = game.dice();
 
     if (dice.isDoubles()) {
@@ -69,6 +81,7 @@ void PostRollState::next() { turn_.game().endTurn(); }
 void LockupState::roll(int die1, int die2) {
     Game &game = turn_.game();
     Player &player = game.currentPlayer();
+    if (blockedByDebt(game, player)) return;
 
     // Paying the fine or spending a token is available on any detained turn,
     // not only the third. Either way the Artificer then rolls and moves.

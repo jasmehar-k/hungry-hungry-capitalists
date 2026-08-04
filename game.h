@@ -2,6 +2,7 @@
 #define GAME_H
 
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <random>
 #include <string>
@@ -104,8 +105,12 @@ public:
 
     // A payment larger than the debtor holds is parked rather than driving the
     // balance negative: the spec gives them the choice of raising funds or
-    // declaring insolvency, and no turn may end while a debt is outstanding.
-    bool hasPendingDebt() const { return debtAmount_ > 0; }
+    // declaring insolvency. Debts are tracked per Artificer because the
+    // insolvency settlement charges mortgage fees to the *creditor*, who is
+    // not the Artificer taking the turn, so that one obligation has to outlive
+    // the turn that created it.
+    bool owes(const Player &player) const;
+    int amountOwed(const Player &player) const;
     void declareInsolvency();
 
     bool mortgage(const std::string &districtName);
@@ -144,16 +149,19 @@ private:
     std::unique_ptr<CardDeck> deck_;  // null unless the enhancement is on
     std::unique_ptr<Turn> turn_;
 
-    // The outstanding debt, if any. A null creditor means the Guild Treasury.
-    Player *debtor_ = nullptr;
-    Player *creditor_ = nullptr;
-    int debtAmount_ = 0;
+    // A null creditor means the Guild Treasury.
+    struct Debt {
+        Player *creditor = nullptr;
+        int amount = 0;
+        // A debt that came from the compulsory Lockup fine still owes the exit
+        // it paid for: settling it must release the Artificer and move the
+        // total they rolled on the turn the fine fell due.
+        bool fromLockupFine = false;
+        int lockupMove = 0;
+    };
+    std::map<Player *, Debt> debts_;
 
-    // When the compulsory Lockup fine cannot be paid it becomes a debt, and
-    // settling that debt must still finish the exit: release the Artificer and
-    // move them the total they rolled on the turn the fine fell due.
-    bool lockupFinePending_ = false;
-    int lockupFineMove_ = 0;
+    void addDebt(Player &debtor, Player *creditor, int amount);
 
     // A district is either given or asked for; a null pointer on a side means
     // that side is Reagents instead.
