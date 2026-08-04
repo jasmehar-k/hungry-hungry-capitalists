@@ -2,3 +2,9 @@ CLAUDE.md
 PLAN.md
 instructions/
 resources/
+
+# build artifacts
+*.o
+*.d
+arcanemarket
+
