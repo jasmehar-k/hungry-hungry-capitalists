@@ -8,11 +8,13 @@
 // format that only fails on bad input, which is the part a demo cannot afford
 // to get wrong.
 
+#include <cstddef>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "board.h"
