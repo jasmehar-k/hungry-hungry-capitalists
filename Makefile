@@ -16,7 +16,8 @@ $(EXEC): $(OBJECTS)
 
 # Test harnesses live in tests/ so the wildcard above never links their
 # main() into the game. tabletest checks the probability tables statistically;
-# gametest drives a headless Game over string streams.
+# gametest drives the Model's rules over string streams; systemtest drives the
+# whole stack through GameController and validates the save format's rejections.
 GAME_OBJECTS = $(filter-out main.o,$(OBJECTS))
 
 tabletest: tests/tabletest.cpp cards.o
@@ -25,11 +26,16 @@ tabletest: tests/tabletest.cpp cards.o
 gametest: tests/gametest.cpp $(GAME_OBJECTS)
 	$(CXX) $(CXXFLAGS) -I. tests/gametest.cpp $(GAME_OBJECTS) -o gametest
 
+systemtest: tests/systemtest.cpp $(GAME_OBJECTS)
+	$(CXX) $(CXXFLAGS) -I. tests/systemtest.cpp $(GAME_OBJECTS) -o systemtest
+
 .PHONY: test
-test: tabletest gametest
+test: tabletest gametest systemtest
 	./tabletest
 	./gametest
+	./systemtest
 
 .PHONY: clean
 clean:
-	rm -f $(OBJECTS) $(DEPS) $(EXEC) tabletest tabletest.d gametest gametest.d
+	rm -f $(OBJECTS) $(DEPS) $(EXEC) tabletest tabletest.d gametest gametest.d \
+	      systemtest systemtest.d

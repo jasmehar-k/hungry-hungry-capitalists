@@ -349,45 +349,31 @@ occurrence to generalise from. An ordinary class with a clear responsibility is 
 > *After reading the Districts subsection of the specification, would the Observer Pattern be a
 > good pattern to use when implementing the Circuit Board? Why or why not?*
 
-My answer is that it is not a good fit for the way the Circuit Board actually has to be updated,
-even though I did implement it.
+The Observer Pattern itself would not be a good pattern to use when implementing the Circuit
+Board.
 
-Observer solves the problem of telling other objects that something has changed, so that a display
-never shows stale data. That is a real problem when a display has to react to changes it cannot
-predict. The Circuit Board does not have that problem. The spec says the board is redrawn after
-every command, in full, every time. Nothing about the redraw depends on what changed, so there is
-nothing for the Model to announce. The event that actually matters is "a command has finished",
-and the Model has no way of knowing when that happens. The Controller does.
+The pattern tells objects that something has changed, so that a display never shows stale data.
+That is a problem when a display has to react to changes it cannot predict. However, the board is
+redrawn after every command, so there is nothing for the Model to announce.
 
-This shows up clearly in my own code. `notifyObservers()` is called in exactly one place,
-`GameController::handleCommand`, and no method in `Game` calls it at all. So the Controller tells
-the Subject to notify, and the Subject notifies its one Observer. The Model is not reporting its
-own changes; it is relaying an event that came from somewhere else.
+If Observer was used the way the question suggests, the Subject would be Game and the Observer
+would be TextView. The notifications would be triggered by the mutating operations inside Game,
+and that does not fit this game: a single roll can move an Artificer, charge a toll and change the
+turn phase, so notifying once per mutation would redraw the board three times in the middle of one
+command.
 
-If Observer were used the way the question suggests, the Subject would be `Game`, since it owns
-the board, the players and the turn, and the Observer would be `TextView`. I considered making
-each `District` a Subject so a district could announce its own changes, but that would be worse
-here. Every redraw draws all forty squares anyway, so forty separate observer lists would just end
-up triggering the same full redraw. The notifications themselves would be triggered by the
-mutating operations inside `Game`, which is how Chapter 17 does it, and that does not fit this
-game either: a single `roll` can move an Artificer, charge a toll and change the turn phase, so
-notifying once per mutation would redraw the board three times in the middle of one command and
-show intermediate states the spec never asks to display.
-
-Direct method calls are better suited to these requirements. Calling `view.render()` from the main
+Direct method calls are better suited to these requirements. Calling view.render() from the main
 loop after each line of input would produce exactly the same output, with one less level of
 indirection and no Subject or Observer machinery to maintain.
 
-Observer would become the better choice if the requirements were different. If there were more than
-one view, or if only the squares that changed were repainted, or if the Model could change outside
-the command loop (a computer-controlled Artificer, for example), then the Model really would need
-to announce its changes, and direct calls would not scale. None of those apply here.
+Observer would become the better choice if the requirements were different. If there were more
+than one view, or if only the squares that changed were repainted, or if the Model could change
+outside the command loop, then the Model would need to announce its changes.
 
-I still implemented it, wired the way Chapter 17 describes, because MVC is the architecture I
-claimed and Chapter 17 defines MVC as Observer plus Strategy. That is a reason about how the
-pattern is defined rather than about a need in this program. The part that does pay off is the
-separation around it: `Game` never names a view class, which is what lets my test harness
-construct a `Game` over string streams and run the rules with no view attached at all.
+A discrepancy in my answer however is that I implement MVC and think it to be the optimal pattern
+as stated in section 3.1. MVC is defined as Observer + Strategy. Regardless, the combined pattern
+pays off due to the separation around it: Game never names a view class, which is what lets the
+test harness construct a Game over string streams and run the rules with no view attached at all.
 
 ### Design Question 2 — Card-Deck Mechanics for Wandering Market and Enchantment Deck
 
@@ -395,26 +381,31 @@ construct a `Game` over string streams and run the rules with no view attached a
 > card-deck mechanics, with a shuffled deck drawn one card at a time and reshuffled when
 > exhausted. Is there a suitable design pattern you could use? How would you structure it?*
 
-The base spec defines both squares as probability *distributions* (Tables 2 and 3), and that is
-what `cards.h` implements with integer weights. A deck is a different mechanic, not a reskin: a
-distribution is memoryless, so −200 can recur immediately, whereas a deck is stateful — each card
-leaves it when drawn, shifting the remaining odds and making card-counting a real strategy. Over
-one full pass a deck deals Table 3 exactly.
+Yes, there is a suitable pattern, and the deck itself is implemented as an optional enhancement
+enabled with -deck.
 
-**The implemented deck** (`CardDeck`, enabled with `-deck`) holds eighteen cards, one per Table 3
-weight unit, dealt from the front and reshuffled on exhaustion. Because every current card is
-simply a Reagent delta, the deck is a `vector<int>` and **no pattern beyond a container is
-warranted**; wrapping seven integers in seven classes would be notation, not design. Both
-implementations meet behind one seam, `Game::drawEnchantmentValue()`.
+A deck is a different mechanic from what the spec asks for rather than a reskin of it. The spec
+defines both squares as probability tables, and a table is memoryless, so -200 can come up twice
+in a row. A deck is stateful: each card leaves the deck when it is drawn, which shifts the odds on
+the cards still in it and makes counting them a real strategy. Over one full pass a deck deals
+Table 3 exactly.
 
-**If we were to extend the design** with heterogeneous card types — "advance to Grand Entrance",
-"receive a Free-Pass Token" — the representation would have to change, and **Command** is the
-pattern that fits: an abstract `EnchantmentCard` with a single `apply(Game&, Player&)` operation,
-each concrete card encapsulating its own effect. The deck would become
-`vector<unique_ptr<EnchantmentCard>>`. Adding a card type would then mean adding one class and one
-line in the deck's build function; the deck's draw and reshuffle logic would not change, which is
-the Open–Closed property the question asks about. `CardDeck` could be refactored to this by
-changing its element type alone — nothing outside it depends on the element being an `int`.
+For the deck I actually built, no pattern is needed. Every Enchantment effect in the spec is only
+a change in Reagents, so the deck is a vector of eighteen integers, one per weight unit in Table
+3, dealt from the front and reshuffled when it runs out. Wrapping seven integers in seven classes
+would be notation rather than design. The table and the deck meet behind one function,
+Game::drawEnchantmentValue(), so the square itself does not know which of the two it is using.
+
+The pattern becomes worth having once the cards stop being interchangeable. If cards had different
+kinds of effects, such as "advance to the Grand Entrance", "receive a Free-Pass Token" or "pay
+every other Artificer 50", then Command is the pattern I would use. Each card becomes an object
+with one apply(Game&, Player&) operation that encapsulates its own effect, and the deck becomes a
+vector of unique_ptr<EnchantmentCard>. Adding a kind of card is then one new class and one line
+where the deck is built, and the drawing and reshuffling code does not change at all.
+
+CardDeck could be refactored into that by changing its element type alone, since nothing outside
+it depends on the element being an int. I did not do it because, with only Reagent deltas in the
+spec, it would be a class hierarchy with exactly one real behaviour in it.
 
 ### Design Question 3 — Decorator Pattern for Upgrades
 
@@ -422,25 +413,32 @@ changing its element type alone — nothing outside it depends on the element be
 > districts? Why or why not? Consider how Toll Fees are calculated with and without upgrades, and
 > how selling upgrades affects the object structure.*
 
-**No.** Decorator would model an upgraded Workshop as a chain: a base `Workshop` wrapped by one
-`UpgradeDecorator` per level, each `computeToll` calling the wrapped object's and adjusting the
-result. That works only if each upgrade contributes a *composable* increment.
+No, the Decorator Pattern is not a good pattern to use for Upgrades.
 
-It does not. Tinder's tolls run 2, 10, 30, 90, 160, 250 — neither additive nor multiplicative, so
-each decorator would have to know the absolute figure for its own level and discard the wrapped
-value entirely. The chain would exist purely to count how many wrappers deep it was.
+Decorator would model an upgraded Workshop as a chain: a base Workshop wrapped by one decorator
+per upgrade, with each computeToll calling the one it wraps and adjusting the answer. That only
+works if each upgrade contributes something composable.
 
-**Selling an upgrade is where it breaks structurally.** An Artificer may sell one level at a time,
-which means removing a decorator from the chain. Decorator has no removal protocol: the district
-would have to be unwrapped and rebuilt, and because re-wrapping produces a *different object*,
-every `Player` and `Board` pointer recording ownership would be left pointing at a stale wrapper.
-Ownership in this game is recorded by pointer identity, so that is decisive.
+Upgrades do not. Tinder's tolls run 2, 10, 30, 90, 160, 250, which is neither adding a fixed
+amount nor multiplying by a fixed factor. Each decorator would have to know the absolute toll for
+its own level and throw away the value it got from the object underneath it, so the chain would
+exist only to record how many layers deep it was. A single integer records that better.
 
-**A counter achieves the same effect with far less complexity**, and is what was implemented: an
-`int upgrades_` on `Workshop` indexing a fixed six-entry toll table, so `computeToll` is one array
-lookup, buying is `+1`, selling is `−1`, and the object's identity never changes. Decorator also
-earns its keep on open-ended composition, whereas upgrades cap at five. The guild-complete doubling
-on unimproved Workshops is applied as a rule at toll time rather than as another decoration.
+Selling an upgrade is where it breaks structurally. An Artificer may sell one level at a time,
+which means taking a decorator back out of the chain, and Decorator has no protocol for removing a
+wrapper. The district would have to be unwrapped and rebuilt, and the rebuilt district is a
+different object. Ownership in this game is recorded by pointer, so every Player and the Board
+would be left pointing at the old wrapper, and tolls, mortgaging and the save file all read
+ownership that way. That makes it decisive rather than merely awkward.
+
+What is implemented instead is an int upgrades_ on Workshop that indexes a six-entry toll table.
+computeToll is one array lookup, buying is +1, selling is -1, and the object's identity never
+changes. Decorator earns its place on open-ended composition, and upgrades stop at five.
+
+The one thing a chain could not express anyway is the doubled toll on an unimproved Workshop in a
+completed Guild. That is not an upgrade, and it depends on who owns the rest of the Guild rather
+than on the district itself, so it is applied as a rule when the toll is computed.
+
 
 ---
 
