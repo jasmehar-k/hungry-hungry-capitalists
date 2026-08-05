@@ -662,6 +662,15 @@ reviewer following the chapter would have marked down. The other was building te
 Several rules in this game cannot be checked by playing it, and having harnesses written quickly
 made things like a statistical check of the probability tables practical rather than theoretical.
 
+I also overrode it directly, twice over. Reviewing the implementation I found five defects it had
+introduced and reported them: a Lockup fine that stranded an Artificer after they raised funds, a
+mortgaged district transfer that drove Reagents negative, a save loader that accepted districts
+that were unowned but mortgaged, command-line parsing that drifted from the fixed contract, and
+`roll 1 2` outside `-testing` silently becoming a random roll. Later, when the code was audited
+against the course's principles, the same pattern appeared at a structural level: the problems had
+been diagnosed and then written up in this report as limitations to be defended rather than fixed.
+I made those changes myself instead, and section 5.1 records what they were.
+
 The advice was not always right. There was a prediction that a shuffled Enchantment deck would
 need one Command object per card, with a class for each kind of effect. When I built it, the seam
 between the two implementations turned out to be a single function returning an `int`, so the deck
@@ -672,16 +681,6 @@ to me as a deliberate level of abstraction when it was really just unfinished, a
 defensible choice once the rendering was fixed. What I took from both is that a confident
 explanation of a design decision is worth no more than the code or the diagram it is describing,
 so I checked them against the chapters myself rather than accepting the explanation.
-
-I also overrode it directly, twice over. Reviewing the implementation I found five defects it had
-introduced and reported them: a Lockup fine that stranded an Artificer after they raised funds, a
-mortgaged district transfer that drove Reagents negative, a save loader that accepted districts
-that were unowned but mortgaged, command-line parsing that drifted from the fixed contract, and
-`roll 1 2` outside `-testing` silently becoming a random roll. Later, when the code was audited
-against the course's principles, the same pattern appeared at a structural level: the problems had
-been diagnosed and then written up in this report as limitations to be defended rather than fixed.
-I made those changes myself instead, and section 5.1 records what they were.
-
 ---
 
 ## 7. Extra Features Implemented
