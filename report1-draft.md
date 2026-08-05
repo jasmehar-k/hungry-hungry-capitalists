@@ -662,18 +662,16 @@ reviewer following the chapter would have marked down. The other was building te
 Several rules in this game cannot be checked by playing it, and having harnesses written quickly
 made things like a statistical check of the probability tables practical rather than theoretical.
 
-The advice was not always right, and the failures were worth more to me than the successes. The
-most serious one was that an earlier draft of this report cited test evidence that did not exist:
-it claimed a harness with a specific number of checks as proof that the design was testable, when
-no such file was in the repository. I only caught it by going to look for the file. The lesson I
-took from that is that a claim about my own code is the one thing I cannot delegate, because it
-sounds equally confident whether or not it is true. A smaller version of the same thing happened
-with the UML, where a diagram with empty attribute and operation compartments was defended to me
-as a deliberate level of abstraction when it was simply unfinished. There was also a prediction
-that a shuffled Enchantment deck would need one Command object per card; when I built it, the seam
+The advice was not always right. There was a prediction that a shuffled Enchantment deck would
+need one Command object per card, with a class for each kind of effect. When I built it, the seam
 between the two implementations turned out to be a single function returning an `int`, so the deck
-is a container of values and a class per card would have bought nothing. Design Question 2 now
-says that, grounded in the code instead of the prediction.
+is a container of values and a class per card would have bought nothing; Design Question 2 now
+says that, grounded in the code instead of in the prediction. Something similar happened with the
+UML, where a diagram whose class boxes had empty attribute and operation compartments was defended
+to me as a deliberate level of abstraction when it was really just unfinished, and only became a
+defensible choice once the rendering was fixed. What I took from both is that a confident
+explanation of a design decision is worth no more than the code or the diagram it is describing,
+so I checked them against the chapters myself rather than accepting the explanation.
 
 I also overrode it directly, twice over. Reviewing the implementation I found five defects it had
 introduced and reported them: a Lockup fine that stranded an Artificer after they raised funds, a
