@@ -11,11 +11,26 @@
 #include "player.h"
 #include "workshop.h"
 
+// The load is deliberately in two phases: everything is parsed into records and
+// checked first, and the game is only mutated once the whole file has passed.
+// A loader that mutated as it read would leave a half-restored game behind on
+// any error, which is worse than not loading at all — the spec warns that a
+// game which fails to load costs significant marks, and the demo has no way
+// back from a corrupted board.
+//
+// Save and load live in one file so the two halves of the format cannot drift
+// apart: any change to what is written has to be made next to what reads it.
+
 namespace {
 
+// Upgrades and mortgage share one field. A count of 0 to 5 is a real upgrade
+// level; -1 means mortgaged, which is why a mortgaged district always restores
+// with no upgrades under it.
 constexpr int kMortgagedMarker = -1;
 
 // The file separates its sections with blank lines, so every read skips them.
+// Trailing carriage returns are dropped as well, so a file written on Windows
+// and loaded on the student server does not fail on invisible characters.
 bool nextLine(std::istream &in, std::string &line) {
     while (std::getline(in, line)) {
         if (line.find_first_not_of(" \t\r") != std::string::npos) {
@@ -26,7 +41,8 @@ bool nextLine(std::istream &in, std::string &line) {
     return false;
 }
 
-// One record per Artificer, held until the whole file validates.
+// One record per Artificer, held until the whole file validates. These exist
+// so that parsing can finish before anything is committed to the live game.
 struct PlayerRecord {
     std::string name;
     char token = ' ';
@@ -50,6 +66,9 @@ bool parsePlayer(const std::string &line, PlayerRecord &record, std::string &err
         error = "malformed Artificer line: " + line;
         return false;
     }
+    // Square 10 is the only square that carries extra fields, because it is
+    // the only one where two different situations look the same: an Artificer
+    // merely visiting The Lockup and one detained in it.
     if (record.position == kLockupSquare) {
         int detainedFlag = 0;
         if (input >> detainedFlag && detainedFlag == 1) {
@@ -63,6 +82,9 @@ bool parsePlayer(const std::string &line, PlayerRecord &record, std::string &err
     return true;
 }
 
+// Each of these refuses a file that would produce a game the rules cannot
+// describe. Every message names the Artificer and the value, because the only
+// thing the user can do with a rejected save is go and look at the file.
 bool validatePlayer(const PlayerRecord &record, std::string &error) {
     if (!isValidToken(record.token)) {
         error = "unknown token '" + std::string(1, record.token) + "' for " + record.name;
@@ -72,6 +94,8 @@ bool validatePlayer(const PlayerRecord &record, std::string &error) {
         error = record.name + " is on square " + std::to_string(record.position);
         return false;
     }
+    // Square 30 sends whoever lands on it to The Lockup, so nobody can
+    // legitimately be standing on it when a game is saved.
     if (record.position == kGoToLockupSquare) {
         error = record.name + " cannot start on square 30 (Go to Lockup)";
         return false;
@@ -140,6 +164,8 @@ bool SaveGame::load(Game &game, const std::string &filename, std::string &error)
         totalFreePasses += record.freePasses;
         players.push_back(record);
     }
+    // The cap is global rather than per Artificer, so it can only be checked
+    // once every Artificer has been read.
     if (totalFreePasses > kMaxFreePassesInPlay) {
         error = "there are " + std::to_string(totalFreePasses) +
                 " Free-Pass Tokens in play, which exceeds the limit of 4";
@@ -161,6 +187,9 @@ bool SaveGame::load(Game &game, const std::string &filename, std::string &error)
             error = "malformed district line: " + line;
             return false;
         }
+        // The format identifies districts by position, not by name alone, so a
+        // file listing them in another order is rejected rather than
+        // rearranged: silently accepting it would hide a corrupted file.
         if (record.name != ownable->name()) {
             error = "districts must appear in circuit order: expected " + ownable->name() +
                     ", found " + record.name;
@@ -176,6 +205,9 @@ bool SaveGame::load(Game &game, const std::string &filename, std::string &error)
                 return false;
             }
         }
+        // Only Workshops take upgrades, so the ceiling depends on what kind of
+        // district this position holds. A Forge or Depot may still be
+        // mortgaged, which is why the floor is the same for all of them.
         const bool isWorkshop = ownable->kind() == DistrictKind::Workshop;
         const int ceiling = isWorkshop ? kMaxUpgrades : 0;
         if (record.upgrades < kMortgagedMarker || record.upgrades > ceiling) {
@@ -203,6 +235,8 @@ bool SaveGame::load(Game &game, const std::string &filename, std::string &error)
         player.setLockupState(record.detained, record.lockupTurns);
     }
 
+    // Names were already checked against the circuit above, so every lookup
+    // here is known to succeed.
     for (const DistrictRecord &record : districts) {
         OwnableDistrict *ownable = game.board().findOwnable(record.name);
         if (record.owner == "GUILD") {

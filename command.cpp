@@ -8,6 +8,19 @@
 #include "player.h"
 #include "savegame.h"
 
+// Each command's execute() is a single call onto its receiver. That thinness
+// is the point rather than a shortcoming: the work of the pattern is done at
+// construction, where the receiver and the parsed arguments are bound into the
+// object, so by the time the Invoker calls execute() the request is complete
+// and it needs to know nothing about what it is running.
+//
+// There is no undo(). The spec never asks to reverse a command, and declaring
+// an operation that all thirteen would leave empty is the unused interface
+// surface that both YAGNI and the Interface Segregation Principle warn about.
+
+// The one command with no receiver: it reports that a line could not be
+// carried out, which lets the parser refuse precisely without printing
+// anything itself.
 void MessageCommand::execute() { out_ << message_ << '\n'; }
 
 void RollCommand::execute() { game_.roll(die1_, die2_); }
@@ -63,6 +76,8 @@ void AssetsCommand::execute() {
 void AllCommand::execute() {
     for (std::size_t i = 0; i < game_.playerCount(); ++i) {
         const Player &player = game_.player(i);
+        // An eliminated Artificer stays in the roster so that districts still
+        // naming them resolve, but they hold nothing worth listing.
         if (player.isInsolvent()) {
             game_.out() << player.name() << " is insolvent\n";
             continue;
@@ -71,6 +86,8 @@ void AllCommand::execute() {
     }
 }
 
+// Save reports its own outcome because a silent failure here would not be
+// discovered until the file was loaded, by which point the game is gone.
 void SaveCommand::execute() {
     if (SaveGame::save(game_, filename_)) {
         game_.out() << "saved to " << filename_ << '\n';

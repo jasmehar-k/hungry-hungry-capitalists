@@ -14,6 +14,12 @@
 #include "turn.h"
 #include "workshop.h"
 
+// The streams are parameters so that the Model never names a console. That is
+// what allows the whole rule set to be driven headlessly by the tests, and it
+// is the reason no file below main.cpp mentions std::cin or std::cout.
+//
+// Member order matters here: rng_ is declared before dice_ in the header
+// because dice_ holds a reference to it.
 Game::Game(bool testingMode, unsigned seed, bool shuffledDeck, std::istream &in,
            std::ostream &out)
     : testingMode_{testingMode}, in_{in}, out_{out}, rng_{seed}, dice_{rng_} {
@@ -21,11 +27,17 @@ Game::Game(bool testingMode, unsigned seed, bool shuffledDeck, std::istream &in,
     turn_ = std::make_unique<Turn>(*this);
 }
 
+// The single seam between the spec's probability table and the optional
+// shuffled deck. Everything else about an Enchantment square is identical
+// either way, so this one function is all the square has to go through and no
+// district code knows which mode is running.
 int Game::drawEnchantmentValue() {
     if (deck_ != nullptr) return deck_->draw();
     return drawEnchantment(rng_).change;
 }
 
+// Out of line so that Turn and CardDeck need only be forward-declared in the
+// header; the destructor is generated here, where both are complete.
 Game::~Game() = default;
 
 bool Game::tokenTaken(char token) const {
@@ -35,6 +47,9 @@ bool Game::tokenTaken(char token) const {
     return false;
 }
 
+// The cap is not arbitrary: a district cell in the text view has room for six
+// tokens, so a seventh Artificer would overflow the board display. Tokens must
+// also be unique, since the board identifies an Artificer by their token.
 bool Game::addPlayer(std::string name, char token) {
     if (players_.size() >= kMaxPlayers || tokenTaken(token)) return false;
     players_.push_back(std::make_unique<Player>(std::move(name), token));
@@ -690,6 +705,9 @@ std::size_t Game::solventCount() const {
     return total;
 }
 
+// A champion only exists once every other Artificer has been eliminated. The
+// roster size is checked as well so that a game still being set up, which
+// briefly holds one Artificer, does not look like a game already won.
 const Player *Game::winner() const {
     if (players_.size() < kMinPlayers || solventCount() != 1) return nullptr;
     for (const auto &player : players_) {
@@ -698,6 +716,8 @@ const Player *Game::winner() const {
     return nullptr;
 }
 
+// Returned in circuit order because the registry is in circuit order, which is
+// both what the assets display wants and what the save file requires.
 std::vector<const OwnableDistrict *> Game::districtsOwnedBy(const Player &player) const {
     std::vector<const OwnableDistrict *> owned;
     for (const OwnableDistrict *ownable : board_.ownables()) {
@@ -706,6 +726,9 @@ std::vector<const OwnableDistrict *> Game::districtsOwnedBy(const Player &player
     return owned;
 }
 
+// Guild sizes differ — Ember has 4, Smoke 3, Arcane 4, Gilded 5 — so this
+// counts the Guild's real membership rather than assuming any fixed number.
+// Assuming three would silently break toll doubling and upgrades on Smoke.
 bool Game::guildComplete(Guild guild, const Player &owner) const {
     int inGuild = 0;
     int held = 0;
@@ -725,6 +748,10 @@ int Game::countOwned(DistrictKind kind, const Player &owner) const {
     return total;
 }
 
+// Savings plus the printed value of every district plus what has been spent on
+// upgrades. This is the figure the Guild Levy's percentage option is taken
+// from, so it counts what an Artificer holds rather than what they could
+// realise by mortgaging it.
 int Game::totalWorth(const Player &player) const {
     int worth = player.reagents();
     for (const OwnableDistrict *ownable : board_.ownables()) {
@@ -760,6 +787,8 @@ int Game::totalFreePasses() const {
     return total;
 }
 
+// Both card squares call this before doing anything else, so the 1% chance and
+// the cap of four in play cannot drift apart between them.
 bool Game::tryGrantFreePass(Player &player) {
     if (totalFreePasses() >= kMaxFreePassesInPlay) return false;
 
@@ -771,6 +800,14 @@ bool Game::tryGrantFreePass(Player &player) {
     return true;
 }
 
+// The one place the Model reads input. The spec obliges it to ask questions
+// mid-turn — whether to buy, how to leave The Lockup, flat or percentage on a
+// Guild Levy — and those arrive outside the command loop, so they cannot be
+// commands. Keeping them all behind this one function means the Model's input
+// has exactly one seam, which is what the tests script.
+//
+// A closed stream yields an empty string rather than looping, so every caller
+// treats "no answer" as its safe default instead of spinning forever.
 std::string Game::prompt(const std::string &question) const {
     out_ << question;
     out_.flush();

@@ -6,6 +6,15 @@
 
 #include "district.h"
 
+// The eighteen squares nobody can own. They share District's interface but not
+// OwnableDistrict's Template Method, because there is no purchase, no owner
+// and no Toll Fee to compute — each simply does its own thing on arrival.
+//
+// They are separate classes rather than one class with a kind field so that
+// landOn is chosen by virtual dispatch instead of by a switch, which is what
+// lets Board hold all forty squares as District pointers and resolve a landing
+// without asking any of them what they are.
+
 // The districts the Guild administers. They cannot be bought, so they keep
 // District's defaults for ownership and upgrades. Each resolves a visit
 // differently, which is why these are separate classes rather than one class

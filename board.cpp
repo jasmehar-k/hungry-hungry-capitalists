@@ -6,6 +6,10 @@
 #include "districtfactory.h"
 #include "workshop.h"
 
+// The circuit is built once from the single table in boarddata.h, and the
+// ownable districts are picked out as it goes. Every later sweep over
+// ownership walks that registry, so no other code has to ask a square what
+// type it is.
 Board::Board() {
     districts_.reserve(kBoard.size());
     for (const DistrictSpec &spec : kBoard) {
@@ -43,10 +47,17 @@ int Board::grandEntrancePasses(int from, int steps) {
     return (from + steps) / kBoardSize;
 }
 
+// The const overload rebuilds the vector because a vector<T*> and a
+// vector<const T*> are unrelated types; the copy is 22 pointers, taken on
+// read-only paths only.
 std::vector<const OwnableDistrict *> Board::ownables() const {
     return {ownables_.begin(), ownables_.end()};
 }
 
+// District names are unique across the circuit, so a name is enough to
+// identify one. This is the lookup the save file and every district-naming
+// command go through, which is why it searches the registry rather than all 40
+// squares: naming a Wandering Market in a mortgage command is not a match.
 OwnableDistrict *Board::findOwnable(const std::string &name) {
     for (OwnableDistrict *ownable : ownables_) {
         if (ownable->name() == name) return ownable;

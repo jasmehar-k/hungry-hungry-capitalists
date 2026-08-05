@@ -5,6 +5,17 @@
 #include "command.h"
 #include "game.h"
 
+// Reading a line and carrying it out are two different jobs, and this file
+// only does the first: it decides which Command object the line describes and
+// builds it with its arguments already parsed. Returning nullptr for anything
+// it cannot place is what makes a misspelled command harmless, since the
+// Controller has exactly one path for "no command matched".
+//
+// The parser prints nothing itself. Where a line deserves a specific
+// explanation rather than the generic one, it returns a MessageCommand
+// carrying that text, which keeps the diagnostic with the command layer
+// instead of putting console output in the parser.
+
 namespace {
 
 // A die value must be a whole non-negative number and nothing else, so "4x"

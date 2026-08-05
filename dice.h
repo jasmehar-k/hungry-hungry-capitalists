@@ -5,6 +5,10 @@
 
 // Two six-sided dice. Under -testing the values may be set explicitly, and the
 // spec allows any non-negative integer there, not just 1-6.
+//
+// The generator is held by reference rather than owned, so every random draw in
+// the program — dice, card tables, the deck shuffle — comes from the one
+// sequence main seeded, and a seed replays a game exactly.
 class Dice {
 public:
     explicit Dice(std::mt19937 &rng);

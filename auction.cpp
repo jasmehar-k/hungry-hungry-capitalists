@@ -10,12 +10,19 @@
 #include "game.h"
 #include "player.h"
 
+// Bidding rotates through the solvent Artificers, dropping each one who
+// withdraws, until a single bidder is left holding the highest bid. Insolvent
+// Artificers are excluded up front rather than skipped inside the loop, so the
+// rotation arithmetic only ever deals with Artificers who can actually bid.
 void Auction::run(OwnableDistrict &district) {
     std::vector<Player *> active;
     for (std::size_t i = 0; i < game_.playerCount(); ++i) {
         Player &player = game_.player(i);
         if (!player.isInsolvent()) active.push_back(&player);
     }
+    // With nobody to bid against, there is no auction to hold. This is
+    // reachable when a Treasury insolvency releases districts in a two-player
+    // game: the eliminated Artificer is already out, leaving one bidder.
     if (active.size() < 2) return;
 
     game_.out() << "the Guild auctions " << district.name() << '\n';
@@ -37,6 +44,8 @@ void Auction::run(OwnableDistrict &district) {
         if (answer == "withdraw" || answer == "w" || answer.empty()) {
             game_.out() << bidder->name() << " withdraws\n";
             active.erase(active.begin() + static_cast<std::ptrdiff_t>(index));
+            // Erasing shifts the next bidder into this index, so the index is
+            // not advanced; it only wraps when the one removed was last.
             if (index >= active.size()) index = 0;
             continue;
         }

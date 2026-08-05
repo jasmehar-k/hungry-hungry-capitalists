@@ -5,6 +5,11 @@
 
 class Game;
 
+// The Invoker of the Command pattern and, at the same time, the Strategy the
+// View holds for behaviour. Keeping it behind an interface is what lets the
+// View be constructed with any controller, and it is the seam the system tests
+// drive instead of a terminal.
+
 // The View's Strategy for behaviour (Ch 17). Swapping the Controller changes
 // what user input does without touching the View or the Model.
 class ControllerInterface {

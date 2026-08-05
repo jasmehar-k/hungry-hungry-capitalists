@@ -7,6 +7,15 @@
 
 class Game;
 
+// The Command hierarchy. Every line the user types that the parser recognises
+// becomes one of these objects, holding both its receiver and its already
+// parsed arguments, so executing it needs no further interpretation.
+//
+// That is what separates what was asked for from who asked and who carries it
+// out: GameController fires execute() through this interface without knowing
+// which command it holds, and adding a command changes neither the Controller
+// nor any existing command.
+
 // Ch 20 declares the Command interface as execute() "and, when undo is
 // required, its inverse, undo()". ArcaneMarket has no undo requirement, so the
 // interface carries execute() alone rather than an undo() every command would

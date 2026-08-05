@@ -8,6 +8,15 @@
 #include "specialdistricts.h"
 #include "workshop.h"
 
+// One switch over a closed set, which is the Simple Factory idiom rather than
+// the Factory Method pattern: there is no creator hierarchy and no subclass
+// decides what gets built.
+//
+// A switch on a type tag is normally the thing to remove, but it is defensible
+// at exactly one place in a program: the point where objects are created, since
+// something must eventually name a concrete class. Everything downstream then
+// works through District's virtual interface. Because the switch has no
+// default label, adding a DistrictKind makes the compiler point here.
 std::unique_ptr<District> DistrictFactory::create(const DistrictSpec &spec) {
     std::string name{spec.name};
     switch (spec.kind) {
@@ -37,5 +46,8 @@ std::unique_ptr<District> DistrictFactory::create(const DistrictSpec &spec) {
         case DistrictKind::EnchantmentDeck:
             return std::make_unique<EnchantmentDeck>(spec.square, std::move(name));
     }
-    return nullptr;  // unreachable: every DistrictKind is handled above
+    // Unreachable: every enumerator is handled above and the compiler enforces
+    // that. Present only because a function returning a value must, and
+    // omitting it would trip -Wreturn-type.
+    return nullptr;
 }

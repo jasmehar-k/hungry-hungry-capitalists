@@ -2,6 +2,11 @@
 
 #include <algorithm>
 
+// The two card squares, in both of the forms the project supports: the spec's
+// probability tables, which are memoryless, and the optional shuffled deck,
+// which is not. Keeping them in one file keeps the deck's contents and the
+// table it must reproduce from drifting apart.
+
 namespace {
 
 // Walks the weighted table with a single uniform draw. The running subtraction
@@ -27,6 +32,9 @@ const EnchantmentOutcome &drawEnchantment(std::mt19937 &rng) {
     return pick(kEnchantmentTable, kEnchantmentWeightTotal, rng);
 }
 
+// The deck is dealt rather than sampled, so drawing a card changes the odds on
+// the cards still in it. That is the whole difference from the table above,
+// and it is why a full pass reproduces Table 3 exactly.
 CardDeck::CardDeck(std::mt19937 &rng) : rng_{rng} { refill(); }
 
 void CardDeck::refill() {
@@ -42,6 +50,8 @@ void CardDeck::refill() {
     next_ = 0;
 }
 
+// Reshuffling happens only once the deck is spent, which is what the
+// enhancement asks for: the cards run out before any of them can repeat.
 int CardDeck::draw() {
     if (next_ >= cards_.size()) refill();
     return cards_[next_++];
