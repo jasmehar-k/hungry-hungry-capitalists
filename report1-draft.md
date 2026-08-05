@@ -629,52 +629,60 @@ failure mode to have at a demo, so unknown arguments now warn and the game conti
 
 | Tool | Tier | Primary purpose | Frequency |
 |---|---|---|---|
-| Claude (Anthropic), via Claude Code | _[free / paid / institutional / GitHub Education / API — fill in]_ | Specification analysis, design and pattern selection, C++ implementation, test harnesses, debugging, UML, report drafting | Frequently |
+| Claude (Anthropic), via Claude Code | _[free / paid / institutional / GitHub Education / API — fill in]_ | Reading the specification, choosing and implementing the design patterns, writing the C++, the test harnesses, debugging, the UML diagrams and drafting this report | Frequently |
 
 _Add rows for any other tools used by any member._
 
 ### 6.2 Categorised usage log
 
-| Category | Used? | Concrete steps |
+| Category | Used? | What I actually did |
 |---|---|---|
-| **Conceptual learning** | **Yes** | Had the course chapters in `resources/` read and summarised *before* each pattern was implemented — Chapter 17 on MVC's arrangement, Chapter 16 on the State Context, Chapter 20 on the Command interface, Chapter 12 on Simple Factory vs Factory Method, Chapter 8 on UML notation. |
-| **Brainstorming design alternatives** | **Yes** | Compared the alternatives recorded in §3 — Template Method vs a `switch` on district kind vs Strategy; State classes vs an enum with conditionals; Command objects vs a `map` of handlers. Also debated whether the district factory could honestly be called Factory Method, and whether card effects needed to be objects. |
-| **Code generation** | **Yes** | Substantially all of the submitted C++ was AI-written — Makefile, board data table, district hierarchy, command interpreter, save/load, auctions, insolvency, upgrades and trading. |
-| **Debugging assistance** | **Yes** | Used to reproduce and fix the defects in §5. Typical interaction: describe a suspected fault, have a scripted scenario built to confirm or refute it, then have the fix written and the regression re-run. |
-| **Code review or critique** | **Yes** | Asked for a review of the whole project "from a grading point of view", which produced the list of remaining gaps; and asked repeatedly to predict what could go wrong at each stage and test against those predictions. |
-| **Writing or editing the report itself** | **Yes** | Sections 1–7 were AI-drafted from the work done. **Section 8 was not** — the requirements prohibit it. |
+| **Conceptual learning** | **Yes** | I had the course chapters in `resources/` read and summarised before writing each pattern rather than after: Chapter 17 for how MVC is arranged, Chapter 16 for the State Context, Chapter 20 for the Command interface, Chapter 12 for Simple Factory against Factory Method, and Chapter 8 for the UML notation. |
+| **Brainstorming design alternatives** | **Yes** | I compared the alternatives recorded in section 3 — Template Method against a `switch` on district kind against Strategy, State classes against an enum with conditionals, and Command objects against a `map` of handlers. I also argued out whether the district factory could honestly be called Factory Method, and whether card effects had to be objects at all. |
+| **Code generation** | **Yes** | Substantially all of the submitted C++ was AI-written: the Makefile, the board data table, the district hierarchy, the command interpreter, save and load, the auction, insolvency, upgrades and trading. |
+| **Debugging assistance** | **Yes** | I used it to reproduce and fix the defects in section 5. The usual pattern was that I described a fault I suspected, had a scripted scenario built to confirm or refute it, and then had the fix written and the tests re-run. |
+| **Code review or critique** | **Yes** | I asked for a review of the whole project from a grading point of view, which produced the list of gaps I then worked through, and I repeatedly asked it to predict what could go wrong at each stage and to test against those predictions. |
+| **Writing or editing the report itself** | **Yes** | Sections 1 to 7 were AI-drafted from the work already done and then edited by me. **Section 8 was not**, because the requirements prohibit it. |
 
 ### 6.3 Transcripts
 
-Full conversation transcripts are exported as PDFs, compressed into a single ZIP, and uploaded to
-the Phase 1 report Dropbox on LEARN, as required.
+I exported the full conversation transcripts as PDFs, compressed them into a single ZIP, and
+uploaded the ZIP to the Phase 1 report Dropbox on LEARN, as required.
 
 ### 6.4 Reflection
 
 > _Drafted from what happened — rewrite in your own voice and correct anything that does not match
 > your experience._
 
-AI assistance was most valuable in two places. The first was reading the course chapters before
-each pattern was written rather than after. Chapter 17's MVC is not the arrangement most people
-assume — the View owns the Controller and queries the Model directly — and writing the code first
-would have produced a plausible-looking MVC that a reviewer following the chapter would mark down.
-The second was building test scenarios: several rules here cannot be checked by playing, and having
-harnesses written quickly made a statistical check of the probability tables practical.
+The two places it helped most were reading and testing. Reading the course chapters before writing
+each pattern rather than after mattered more than I expected: Chapter 17's MVC is not the
+arrangement most people assume, because the View owns the Controller and queries the Model
+directly, and writing the code first would have left me with a plausible-looking MVC that a
+reviewer following the chapter would have marked down. The other was building test scenarios.
+Several rules in this game cannot be checked by playing it, and having harnesses written quickly
+made things like a statistical check of the probability tables practical rather than theoretical.
 
-The advice was not always right. The plan asserted that a shuffled Enchantment deck would need
-Command objects, one class per card. Building it showed the seam between the two implementations
-was a single function returning an `int`, so the deck is a container of values and a class per card
-would have bought nothing; Design Question 2 now says so, grounded in code rather than prediction.
-Earlier, it produced a UML diagram whose class boxes had empty attribute and operation compartments
-and defended that as an "abstraction level" — it was simply an unfinished diagram, and only became
-a defensible choice once the rendering was fixed.
+The advice was not always right, and the failures were worth more to me than the successes. The
+most serious one was that an earlier draft of this report cited test evidence that did not exist:
+it claimed a harness with a specific number of checks as proof that the design was testable, when
+no such file was in the repository. I only caught it by going to look for the file. The lesson I
+took from that is that a claim about my own code is the one thing I cannot delegate, because it
+sounds equally confident whether or not it is true. A smaller version of the same thing happened
+with the UML, where a diagram with empty attribute and operation compartments was defended to me
+as a deliberate level of abstraction when it was simply unfinished. There was also a prediction
+that a shuffled Enchantment deck would need one Command object per card; when I built it, the seam
+between the two implementations turned out to be a single function returning an `int`, so the deck
+is a container of values and a class per card would have bought nothing. Design Question 2 now
+says that, grounded in the code instead of the prediction.
 
-I also overrode it directly. Reviewing the implementation, I found five defects it had introduced
-and reported them: a Lockup fine that stranded a player after they raised funds, a mortgaged
-district transfer that drove Reagents negative, a save loader that accepted unowned-but-mortgaged
-districts, command-line parsing that deviated from the fixed contract, and `roll 1 2` outside
-`-testing` silently becoming a random roll. Each was real; each was then fixed and regression
-tested.
+I also overrode it directly, twice over. Reviewing the implementation I found five defects it had
+introduced and reported them: a Lockup fine that stranded an Artificer after they raised funds, a
+mortgaged district transfer that drove Reagents negative, a save loader that accepted districts
+that were unowned but mortgaged, command-line parsing that drifted from the fixed contract, and
+`roll 1 2` outside `-testing` silently becoming a random roll. Later, when the code was audited
+against the course's principles, the same pattern appeared at a structural level: the problems had
+been diagnosed and then written up in this report as limitations to be defended rather than fixed.
+I made those changes myself instead, and section 5.1 records what they were.
 
 ---
 
@@ -683,19 +691,20 @@ tested.
 ### Shuffled Enchantment Deck
 
 **Feature name and description.** The spec defines the Enchantment squares as a probability table
-and lists a real deck as an enhancement. With the enhancement enabled, effects are drawn from a
-genuine deck of eighteen cards — one per Table 3 weight unit — dealt one at a time and reshuffled
-only when exhausted. A player interacts with it exactly as with the base game, by landing on an
-Enchantment Deck square; the difference is that the odds shift as cards are consumed, so a full
-pass deals Table 3 exactly and counting cards becomes a real strategy.
+and lists a real deck as an optional enhancement. With the enhancement on, effects come from a
+genuine deck of eighteen cards, one per weight unit in Table 3, dealt one at a time and reshuffled
+only once it is exhausted. An Artificer interacts with it exactly as in the base game, by landing
+on an Enchantment Deck square. What changes is that the odds shift as cards are used up, so a full
+pass through the deck deals Table 3 exactly and counting the cards becomes a real strategy.
 
-**Design — how it integrates with the existing class structure.** `CardDeck` (`cards.h`/`.cpp`)
-holds the shuffled `vector<int>` and exposes `draw()`, refilling and reshuffling when spent. `Game`
-holds a `unique_ptr<CardDeck>` that is null unless the enhancement is on, and both implementations
-meet behind one seam, `Game::drawEnchantmentValue()`. `EnchantmentDeck::landOn` calls that seam and
-is identical either way, so no district code knows which mode is active. The choice is made at
-startup, satisfying the requirement that the game plays with and without enhancements without
-recompiling.
+**Design — how it integrates with the existing class structure.** `CardDeck`, in `cards.h` and
+`cards.cpp`, holds the shuffled `vector<int>` and exposes `draw()`, refilling and reshuffling
+itself when it runs out. `Game` holds a `unique_ptr<CardDeck>` that stays null unless the
+enhancement is on, and the two implementations meet behind a single function,
+`Game::drawEnchantmentValue()`. `EnchantmentDeck::landOn` calls that function and is identical
+either way, so no district code knows which mode is running. The choice is made once at startup,
+which satisfies the requirement that the game plays with and without its enhancements from the
+same build.
 
 **How to trigger it during the demo.**
 
@@ -704,11 +713,11 @@ recompiling.
 ./arcanemarket -load save.txt -testing -deck    # loaded game, deterministic dice, deck enabled
 ```
 
-On startup the program prints `Enchantment effects come from a shuffled deck of 18 cards`,
-confirming the mode is active. Then land any Artificer on an Enchantment Deck square — squares 7,
-19, 26 or 32; with `-testing`, for example `roll 0 7` from Grand Entrance. Running the same
-scenario **without** `-deck` uses the spec's probability table instead, demonstrating that both
-modes work from the same binary.
+At startup the program prints `Enchantment effects come from a shuffled deck of 18 cards`, which
+confirms the mode is on. Then land any Artificer on an Enchantment Deck square, which are squares
+7, 19, 26 and 32; under `-testing`, `roll 0 7` from the Grand Entrance does it. Running the same
+scenario without `-deck` uses the spec's probability table instead, which demonstrates that both
+modes work from one binary.
 
 ---
 
