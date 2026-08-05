@@ -444,159 +444,179 @@ than on the district itself, so it is applied as a rule when the toll is compute
 
 ## 5. Challenges & How You Addressed Them
 
-### 5.1 The specification contradicts itself
+These are ordered by how much they changed the project, not by when they happened.
+
+### 5.1 Auditing the design against the course's principles
+
+**The challenge.** The game worked, but working is not the same as being well designed. I went
+back over the code against the course's summary of its own principles and found four structural
+faults. None of them would have been caught by any test.
+
+- `Game` wrote to `std::cout` in 83 places. Every public commitment constrains future change, and
+  those were an undeclared commitment to a console: no other View could reuse the Model without
+  dragging them along.
+- The auction's bidding loop sat inside `Game`, which gave the Model a second reason to change.
+- Eleven `dynamic_cast`s and eight duplicated board sweeps each worked out again which squares
+  were ownable. That is dispatch on a type tag, which is the canonical OCP violation, and it is a
+  DRY failure as well, because one piece of knowledge had eight representations.
+- `game_.turn().roll()` appeared throughout, which is the `a.getB().getC()` chain the Principle of
+  Least Knowledge warns about.
+
+**Approaches considered.** The first option was to leave the code alone and write the gaps up in
+this report, which is what had been happening: the console problem was recorded as an honest
+limitation and defended on the grounds that Chapter 16's own `GumballMachine` prints from the
+Model. That defends a violation instead of removing one. A full rewrite was too risky with the
+deadline close. What I did instead was a targeted pass, one principle at a time, re-running the
+whole test suite after each.
+
+**Resolution.**
+
+1. The console left the Model. `Game` and `TextView` take `std::istream&` and `std::ostream&` by
+   constructor injection, which is the shape the summary prescribes: the high-level logic depends
+   on an abstraction and the concrete implementation is injected through constructor parameters.
+   `main.cpp` is now the only file that names `std::cin` or `std::cout`, and `game.cpp` names
+   neither. This is also what made the headless test harnesses possible, since they need to
+   capture the Model's output rather than have it disappear into a terminal.
+2. The auction became its own class. `Auction` owns the bidding dialogue and `Game` keeps the
+   rules, so each has one reason to change. This is described in section 3.6.
+3. Type dispatch left the sweeps. `Board` classifies its districts once at construction into a
+   registry held in circuit order, and every ownership sweep — total worth, transfers, insolvency,
+   save and load, assets — now iterates `board.ownables()`. Two new virtual hooks, `buyPrice` on
+   the base and `upgradeInvestment` on ownables, removed the rest, which is the summary's
+   prescribed cure of replacing a type-tag test with virtual dispatch. Eleven downcasts became
+   one, in `board.cpp` at the point of classification, with its reason written beside it.
+4. The chains became forwarders. `Game` no longer exposes its `Turn`; callers use `game_.roll()`
+   and the states use `turn_.out()` and `turn_.endTurn()`. Formatting an Artificer's assets moved
+   out of the Model and into `AssetsCommand` and `AllCommand`, which build their output from
+   `Game::districtsOwnedBy()`.
+
+The result is measurable rather than asserted: 83 console writes in the Model down to none, eleven
+downcasts down to one, and a `Game` that no longer reaches through its collaborators. What makes
+this worth recording is that I found all four by reading the code against a checklist rather than
+by running it. No test failed before the audit, and none failed after it.
+
+### 5.2 One debt slot silently forgave obligations
+
+**The challenge.** I was fixing a smaller bug — transferring a mortgaged district subtracted its
+10% fee without checking whether the receiver could pay, which took one Artificer to −22 Reagents
+— and it exposed something larger. The whole debt system was three fields on `Game`, so a second
+debt overwrote the first. That is normally safe, because a turn cannot end while the current
+Artificer owes anything. But insolvency charges the mortgage fees to the creditor, who is not the
+Artificer taking the turn, so that one obligation outlives the turn that created it. I reproduced
+it: a creditor's 26-Reagent debt was erased by an unrelated one, which left them richer than they
+should have been and the Treasury unpaid, with nothing printed to say so.
+
+**Approaches considered.** Leaving it and documenting the limitation; settling the creditor's fee
+immediately with a raise-funds loop in the middle of somebody else's turn; or tracking debts per
+Artificer.
+
+**Resolution.** A `map<Player*, Debt>`, together with a guard that an Artificer who owes anything
+may not roll. The guard is what makes one debt per Artificer enough: without it, someone could
+begin a turn already owing the Treasury, roll into a toll and end up owing two creditors at once,
+which is a situation insolvency has no answer for. It is also closer to the spec, which resolves a
+shortfall on the spot rather than letting it accumulate.
+
+### 5.3 A rule spanning two subsystems left an Artificer stuck forever
+
+**The challenge.** On the third turn in The Lockup the spec makes the fine or a token compulsory.
+My code checked whether the Artificer could afford it first and printed "cannot pay", so an
+Artificer holding 10 Reagents stayed detained indefinitely. They could not even declare insolvency,
+because no debt had ever been registered against them.
+
+**Approaches considered.** Special-casing the fine as its own kind of obligation; releasing the
+Artificer for free when they cannot pay; or routing the fine through the debt mechanism that
+already existed.
+
+**Resolution.** The third. The fine goes through `payTreasury`, which parks a debt when it cannot
+be paid, and the debt then blocks the turn until it is settled or insolvency is declared. Fixing
+that exposed a second defect underneath it: settling the debt released nobody and never made the
+move the fine had been paid for, so the Artificer would be charged again on the next turn. The
+`Debt` record now carries the fact that it came from a Lockup fine along with the roll it owes,
+and settling it completes the exit.
+
+### 5.4 Saving and loading brought eliminated Artificers back
+
+**The challenge.** The save format has no field for insolvency, and `save` was writing every
+Artificer in the roster. A bankrupt one reloaded as an ordinary player holding 0 Reagents and,
+being first in the file, took the first turn. Loading is the spec's top marking priority, so this
+one mattered twice over.
+
+**Approaches considered.** Adding an insolvency field, which would break the required format;
+keeping eliminated Artificers in the file and filtering them out on load; or leaving them out at
+save time.
+
+**Resolution.** Leaving them out at save time, with `numPlayers` written as the number of solvent
+Artificers. The format stays exactly as the spec defines it, and an eliminated Artificer no longer
+exists in the saved game, which is what being eliminated should mean.
+
+### 5.5 The specification contradicts itself
 
 **The challenge.** The board figure and Table 1 disagree in two places. The figure prices
 Veil-watch at 180 where Table 1 says 170, and the figure's legend lists five square numbers for
-four Forges, implying square 14 is a Forge when the save-file ordering places Westgate Depot there
-(between Coal-gate 13 and Mist-forge 16). Building from the wrong source would corrupt every toll
-downstream.
+four Forges, which implies square 14 is a Forge when the save-file ordering puts Westgate Depot
+there, between Coal-gate at 13 and Mist-forge at 16. Building from the wrong source would have
+corrupted every toll downstream.
 
-**Approaches considered.** Following the figure; following Table 1; or picking whichever seemed
-more authoritative case by case.
+**Approaches considered.** Following the figure; following Table 1; or judging each case
+separately on which source looked more authoritative.
 
-**Resolution.** Both resolved in favour of Table 1 and the save-file ordering, because those two
-are internally consistent with each other and with the upgrade costs and six toll tiers, while the
-figure is not. Recorded in the project notes rather than decided silently, so it can be defended.
+**Resolution.** I resolved both in favour of Table 1 and the save-file ordering, because those two
+agree with each other and with the upgrade costs and the six toll tiers, while the figure does not
+agree with any of them. I recorded the decision in my project notes rather than making it
+silently, so that I can defend it at the demo.
 
-### 5.2 Distinguishing a forward lap from a backward move
+### 5.6 Testing rules that playing cannot exercise
 
-**The challenge.** `passedGrandEntrance(from, to)` tested `to < from`, which is true for *any*
-backward move — so a Wandering Market sending an Artificer from square 5 to square 2 wrongly paid
-the 200-Reagent bonus.
+**The challenge.** Some of this game cannot be verified by playing it. Tables 2 and 3 are
+probability distributions, and a transposed weight produces plausible output forever. A save file
+that should be rejected is only ever seen when someone hands the program a broken one. Neither
+shows up in a normal game.
 
-**Approaches considered.** Comparing destination against origin (the broken version); tracking a
-lap count on `Player`; passing the direction of travel alongside the destination.
+**Approaches considered.** Re-reading the tables by eye; asserting on individual draws; or
+measuring behaviour in bulk with harnesses that do not need a console.
 
-**Resolution.** The destination alone cannot carry this information, so the signature takes the
-**step count** instead, paying only when `steps > 0`. Later extended from a boolean to a lap count,
-because `-testing` accepts dice totals large enough to cross Grand Entrance twice in one move.
+**Resolution.** Three harnesses, all run by `make test`, plus compile-time checks. The weights are
+asserted to sum to 24 and 18 at compile time, so a mistyped entry fails the build.
+`tests/tabletest.cpp` draws 200,000 outcomes from each table and compares the observed frequencies
+against the spec within a tolerance, then verifies the shuffled deck's defining property, which is
+that 100 consecutive passes each deal Table 3 exactly. `tests/gametest.cpp` constructs a `Game`
+over string streams with no view attached at all and asserts on the Model's rules directly — the
+four toll formulas, mortgages, the Grand Entrance bonus, parked debts, insolvency and a
+byte-identical save and load round trip — in 56 checks. `tests/systemtest.cpp` goes in through the
+front door instead, building a `GameController` and feeding it command lines, which covers the
+parser, the turn state machine, the three Lockup exits, trading, upgrades, the auction, both
+insolvency destinations and twenty-seven malformed save files that must each be rejected with a
+reason and with the running game left untouched, in a further 226 checks.
 
-### 5.3 A save/load cycle resurrected eliminated Artificers
+### 5.7 Telling a forward lap from a backward move
 
-**The challenge.** The save format has no field for insolvency, and `save` wrote every Artificer in
-the roster. A bankrupt one reloaded as a normal player holding 0 Reagents and, being first in the
-file, took the first turn. Loading is the spec's top marking priority, so this mattered doubly.
+**The challenge.** `passedGrandEntrance(from, to)` tested whether the destination was lower than
+the origin, which is true of any backward move. A Wandering Market sending an Artificer from
+square 5 back to square 2 therefore paid them the 200-Reagent bonus.
 
-**Approaches considered.** Adding a non-standard insolvency field (which would break the required
-format); keeping insolvent players in the file and filtering on load; excluding them at save time.
+**Approaches considered.** Comparing the destination against the origin, which is the broken
+version; tracking a lap count on `Player`; or passing the direction of travel alongside the
+destination.
 
-**Resolution.** Excluding at save time, with `numPlayers` written as the solvent count. The format
-stays exactly as specified, and an eliminated Artificer no longer exists in the saved game — which
-is what elimination means.
+**Resolution.** The destination on its own cannot carry this information, so the function takes
+the step count instead and pays only when the steps are positive. I later changed it from a
+boolean to a count of laps, because `-testing` accepts dice totals large enough to cross the Grand
+Entrance twice in a single move.
 
-### 5.4 A rule spanning two subsystems left a player permanently stuck
+### 5.8 Silent failure on malformed input
 
-**The challenge.** On the third turn in The Lockup the spec forces the fine or a token. The code
-checked affordability first and printed "cannot pay", so an Artificer with 10 Reagents stayed
-detained indefinitely, unable even to declare insolvency because no debt had been registered.
-
-**Approaches considered.** Special-casing the fine as a distinct obligation; releasing the
-Artificer free when they cannot pay; routing the fine through the existing debt mechanism.
-
-**Resolution.** The third. The fine goes through `payTreasury`, which parks a debt when
-unaffordable, and the debt blocks the turn until settled or insolvency is declared. This exposed a
-follow-on defect — settling the debt released nobody and never made the required move, so the
-Artificer would be charged again next turn. The `Debt` record now carries the fact that it is a
-Lockup fine plus the roll it owes, and settling it completes the exit.
-
-### 5.5 One debt slot silently forgave obligations
-
-**The challenge.** Fixing a negative-balance bug — a mortgaged district transfer subtracted its 10%
-fee with no affordability check, taking one Artificer to −22 Reagents — exposed something larger.
-The whole debt system was three fields on `Game`, so a second debt overwrote the first. That is
-normally safe, because a turn cannot end while the current Artificer owes; but insolvency charges
-mortgage fees to the **creditor**, who is not the current player, so that debt outlives its turn. A
-reproduction showed a creditor's 26-Reagent obligation erased by an unrelated debt, leaving them
-richer and the Treasury unpaid, with no error message.
-
-**Approaches considered.** Leaving it and documenting the limitation; resolving the creditor's fee
-immediately with a modal raise-funds loop during another player's turn; tracking debts per
-Artificer.
-
-**Resolution.** A `map<Player*, Debt>`, plus a guard that an Artificer who owes anything may not
-roll. The guard is what makes one debt per player *sufficient*: without it, a player could begin a
-turn owing the Treasury, roll into a toll, and owe two creditors at once — a situation insolvency
-has no answer for. It is also closer to the spec, which resolves a shortfall on the spot.
-
-### 5.6 Verifying rules that play cannot exercise
-
-**The challenge.** Tables 2 and 3 are probability distributions. A transposed weight produces
-plausible output forever; no amount of playing reliably reveals it.
-
-**Approaches considered.** Re-reading the tables by eye; asserting on individual draws; measuring
-the distribution statistically.
-
-**Resolution.** Compile-time and statistical checks together. The weights are asserted to sum to
-24 and 18 at compile time, so a mistyped entry fails the build. `tests/tabletest.cpp` then draws
-200,000 outcomes from each table and compares the observed frequencies against the spec within a
-tolerance, and verifies the shuffled deck's defining property — that 100 consecutive passes each
-deal exactly Table 3. Both run under `make test`, alongside `tests/gametest.cpp`, which drives a
-full game headlessly over string streams: movement, toll doubling, Forge and Depot levies,
-mortgages, the Lockup, parked debts, insolvency, and a byte-identical save/load round trip.
-
-### 5.7 Silent failure on malformed input
-
-**The challenge.** `roll 1 2` without `-testing` rolled random dice and ignored the arguments; so
-did `roll 1`, `roll abc` and `roll 4x 2` inside testing mode. Doing something other than what was
-typed, without saying so, is worse than refusing.
+**The challenge.** `roll 1 2` outside `-testing` rolled random dice and ignored the arguments, and
+so did `roll 1`, `roll abc` and `roll 4x 2` inside testing mode. Doing something other than what
+was typed, without saying so, is worse than refusing to do anything.
 
 **Approaches considered.** Letting the parser print diagnostics directly; returning `nullptr` and
-accepting the generic "I don't understand"; introducing a command that reports a refusal.
+accepting the generic "I don't understand"; or introducing a command whose job is to report a
+refusal.
 
-**Resolution.** The third. `MessageCommand` carries a specific diagnostic, so the parser stays free
-of console output while the user gets a precise message. A related robustness fix: an unrecognised
-command-line argument used to abort the program entirely — the wrong failure mode at a demo — so
-unknown arguments now warn and continue.
-
-### 5.8 Auditing the design against the course's principles
-
-**The challenge.** The features worked, but working was not the same as well designed. A pass over
-the code against the course's summary of its own principles found four structural faults, none of
-which any test would have caught:
-
-- `Game` wrote to `std::cout` at **83 call sites**. Encapsulation holds that every public
-  commitment constrains future change, and those were an undeclared commitment to a console: no
-  other View could reuse the Model without them coming too.
-- The auction's bidding loop sat inside `Game`, giving the Model a second axis of variation.
-- **Eleven `dynamic_cast`s** and eight duplicated board sweeps each re-derived "which squares are
-  ownable" — dispatch on a type tag, the canonical OCP violation, and a DRY failure besides, since
-  one piece of knowledge had eight representations.
-- `game_.turn().roll()` appeared throughout, the `a.getB().getC()` train wreck the Principle of
-  Least Knowledge names.
-
-**Approaches considered.** The first option was to leave the code and document the gaps in this
-report, which is what had been happening: the console problem was written up as an "honest
-limitation" and defended on the grounds that Chapter 16's own `GumballMachine` prints from the
-Model. That defends a violation rather than removing one. A wholesale rewrite was rejected as too
-risky against the deadline. The third option, taken, was a targeted pass — one principle at a
-time, with the full test suite re-run after each.
-
-**How it was resolved.**
-
-1. **DIP — the console left the Model.** `Game` and `TextView` take `std::istream&` and
-   `std::ostream&` by constructor injection, the shape the summary prescribes: high-level logic
-   depends on an abstraction and the concrete implementation is injected through constructor
-   parameters. `main.cpp` became the only file naming `std::cin` or `std::cout`; `game.cpp`
-   contains none. This also unblocked the headless suite, which needs to capture Model output
-   rather than ignore it.
-2. **SRP — the auction became its own class.** `Auction` owns the bidding dialogue and `Game`
-   keeps the rules, so each has one reason to change. See §3.6.
-3. **OCP and DRY — type dispatch left the sweeps.** `Board` classifies its districts once at
-   construction into a circuit-ordered registry, and every ownership sweep — total worth,
-   transfers, insolvency, save/load, assets — iterates `board.ownables()`. Two new virtual hooks,
-   `buyPrice` on the base and `upgradeInvestment` on ownables, removed the remainder, which is the
-   summary's prescribed cure: replace the type-tag test with virtual dispatch. Eleven downcasts
-   became **one**, in `board.cpp` at the point of classification, with its reason stated beside it.
-4. **Least Knowledge — chains became forwarders.** `Game` no longer exposes its `Turn`; callers
-   use `game_.roll()` and states use `turn_.out()` and `turn_.endTurn()`. Asset formatting moved
-   out of the Model into `AssetsCommand` and `AllCommand`, which render from
-   `Game::districtsOwnedBy()`.
-
-The result is measurable rather than asserted: 83 Model-layer console writes to zero, eleven
-downcasts to one, and a `Game` that no longer reaches through its collaborators. What makes this
-worth recording is that all four were found by reading the code against a checklist, not by
-running it — no test failed before the audit, and none failed after it.
+**Resolution.** The third. `MessageCommand` carries a specific diagnostic, so the parser itself
+stays free of console output while the user still gets a precise message. A related fix belongs
+here: an unrecognised command-line argument used to abort the program outright, which is the wrong
+failure mode to have at a demo, so unknown arguments now warn and the game continues.
 
 ---
 
